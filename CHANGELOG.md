@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0
+## 1.0.0
 
 - `Zeny` client for the Merchant API v1: payment links (create, retrieve, list, close, reopen, cancel), payments (create, retrieve, attempts), payouts (create, retrieve, cancel), disputes (list, retrieve) and Sandbox test funds.
 - Results are read-only `ZenyObject`s with `lastResponse`; `toArray()` returns PHPStan array shapes generated from the API contract. Amounts are decimal strings.
