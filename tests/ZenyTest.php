@@ -20,16 +20,16 @@ function dumped(mixed $value): string
     return (string) ob_get_clean();
 }
 
-test('Zeny exposes the four repositories', function (): void {
+test('Zeny exposes the five repositories', function (): void {
     $zeny = new Zeny(ZENY_TEST_KEY);
 
-    expect(array_keys(get_object_vars($zeny)))->toBe(['payments', 'payouts', 'disputes', 'testFunds']);
+    expect(array_keys(get_object_vars($zeny)))->toBe(['paymentLinks', 'payments', 'payouts', 'disputes', 'testFunds']);
 });
 
 test('Zeny stores no config or transport property', function (): void {
     $names = array_map(fn (ReflectionProperty $property): string => $property->getName(), (new ReflectionClass(Zeny::class))->getProperties());
 
-    expect($names)->toBe(['payments', 'payouts', 'disputes', 'testFunds']);
+    expect($names)->toBe(['paymentLinks', 'payments', 'payouts', 'disputes', 'testFunds']);
 });
 
 test('var_dump of a client prints no key, not even a redacted one', function (): void {

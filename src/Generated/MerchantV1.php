@@ -34,6 +34,13 @@ namespace Zeny\Generated;
  *     createdAt: string|null,
  * }
  * @phpstan-type S_merchant_payment_v1_CardMethod array<string, mixed>
+ * @phpstan-type S_merchant_payment_v1_CreatePaymentLinkRequest array{
+ *     name: string,
+ *     amount?: S_type_v1_MoneyInput,
+ *     instruments?: list<string>,
+ *     successRedirectUrl?: string,
+ *     expiresAt?: string,
+ * }
  * @phpstan-type S_merchant_payment_v1_CreatePaymentRequest array{
  *     reference: string,
  *     amount: S_type_v1_MoneyInput,
@@ -86,6 +93,12 @@ namespace Zeny\Generated;
  * @phpstan-type S_merchant_payment_v1_ListDisputesResponse array{
  *     object: string,
  *     data: list<S_merchant_payment_v1_Dispute>,
+ *     hasMore: bool,
+ *     nextCursor: string,
+ * }
+ * @phpstan-type S_merchant_payment_v1_ListPaymentLinksResponse array{
+ *     object: string,
+ *     data: list<S_merchant_payment_v1_PaymentLink>,
  *     hasMore: bool,
  *     nextCursor: string,
  * }
@@ -159,6 +172,19 @@ namespace Zeny\Generated;
  * }
  * @phpstan-type S_merchant_payment_v1_PaymentEvent_Data array{
  *     object: S_merchant_payment_v1_Payment,
+ * }
+ * @phpstan-type S_merchant_payment_v1_PaymentLink array{
+ *     id: string,
+ *     object: string,
+ *     name: string,
+ *     amount: S_type_v1_Money|null,
+ *     status: string,
+ *     instruments: list<string>,
+ *     successRedirectUrl: string,
+ *     url: string,
+ *     paidCount: int,
+ *     createdAt: string|null,
+ *     expiresAt: string|null,
  * }
  * @phpstan-type S_merchant_payment_v1_PaymentMethod array{
  *     type: string,
@@ -267,11 +293,14 @@ namespace Zeny\Generated;
  * @phpstan-type Money S_type_v1_Money
  * @phpstan-type Payment S_merchant_payment_v1_Payment
  * @phpstan-type PaymentAttempt S_merchant_payment_v1_PaymentAttempt
+ * @phpstan-type PaymentLink S_merchant_payment_v1_PaymentLink
+ * @phpstan-type PaymentLinkList S_merchant_payment_v1_ListPaymentLinksResponse
  * @phpstan-type Payout S_merchant_payout_v1_Payout
  * @phpstan-type Dispute S_merchant_payment_v1_Dispute
  * @phpstan-type DisputeList S_merchant_payment_v1_ListDisputesResponse
  * @phpstan-type TestFunds S_merchant_balance_v1_TestFunds
  * @phpstan-type CreatePaymentParams S_merchant_payment_v1_CreatePaymentRequest
+ * @phpstan-type CreatePaymentLinkParams S_merchant_payment_v1_CreatePaymentLinkRequest
  * @phpstan-type CreatePayoutParams S_merchant_payout_v1_CreatePayoutRequest
  * @phpstan-type CreateTestFundsParams S_merchant_balance_v1_CreateTestFundsRequest
  * @phpstan-type ApiErrorBody S_Error
@@ -285,6 +314,13 @@ namespace Zeny\Generated;
  * }
  * @phpstan-type ListDisputesParams array{
  *     status?: ''|'open'|'won'|'lost',
+ *     limit?: int,
+ *     cursor?: string,
+ * }
+ * @phpstan-type ListPaymentLinksParams array{
+ *     status?: ''|'active'|'closed'|'expired',
+ *     createdFrom?: string,
+ *     createdTo?: string,
  *     limit?: int,
  *     cursor?: string,
  * }

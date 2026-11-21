@@ -10,6 +10,11 @@ use Zeny\Zeny;
 
 final class FacadeTest extends LaravelTestCase
 {
+    public function test_payment_links_returns_the_container_clients_repository(): void
+    {
+        $this->assertSame($this->laravel()->make(Zeny::class)->paymentLinks, ZenyFacade::paymentLinks());
+    }
+
     public function test_payments_returns_the_container_clients_repository(): void
     {
         $this->assertSame($this->laravel()->make(Zeny::class)->payments, ZenyFacade::payments());

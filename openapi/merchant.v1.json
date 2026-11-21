@@ -19,6 +19,10 @@
       "description": "Payments collect money from a payer. Create a payment for the amount you\nwant, then start an attempt with the instrument the payer chose (a bank's\nvirtual account, QRIS, an e-wallet): the attempt's `nextAction` tells the\npayer how to pay. A payment can take several attempts until one succeeds\nor the payment expires. Learn the outcome from the `payment.paid` and\n`payment.expired` webhooks, or read the payment again.\n\nAuthenticate with `Authorization: Bearer sk_live_…` (or `sk_test_…`).\nEvery create takes an `Idempotency-Key`: send the same key again after a\ntimeout or a 5xx and you get the first answer, with `Idempotent-Replayed:\ntrue`, and nothing is created twice."
     },
     {
+      "name": "PaymentLinkService",
+      "description": "Payment links are shareable checkout pages that collect payments: create\none, share its `url`, and the payer picks how to pay on Zeny's page. Each\npayment made through a link carries the link's id in `paymentLink`, so\nthe `payment.paid` webhook tells you which link was paid. The links live\nin your API key's project; they behave as the dashboard's payment links\ndo.\n\nAuthenticate with `Authorization: Bearer sk_live_…` (or `sk_test_…`).\nCreate takes an `Idempotency-Key`: send the same key again after a\ntimeout or a 5xx and you get the first link, with `Idempotent-Replayed:\ntrue`, and nothing is created twice."
+    },
+    {
       "name": "PayoutService",
       "description": "Payouts send money from your project's available balance to a saved\nbeneficiary's bank account or e-wallet. A payout you request reserves its\nmoney at once and waits in `pending_approval` until the platform's team\napproves it; it is then `processing` until the\nprovider reports it `paid` or `failed`. Learn the outcome from the\n`payout.paid`, `payout.failed`, `payout.rejected` and `payout.canceled`\nwebhooks, or read the payout again.\n\nAuthenticate with `Authorization: Bearer sk_live_…` (or `sk_test_…`).\nEvery POST takes an `Idempotency-Key`: send the same key again after a\ntimeout or a 5xx and you get the first answer's status with the payout as\nit is now, with `Idempotent-Replayed: true`, and nothing happens twice."
     }
@@ -212,6 +216,567 @@
         },
         "x-rate-limit": {
           "max": 1200,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payment-links": {
+      "get": {
+        "operationId": "PaymentLinkService_ListPaymentLinks",
+        "tags": [
+          "PaymentLinkService"
+        ],
+        "summary": "List payment links",
+        "description": "Lists your project's payment links, newest first, a page at a time. A\ncanceled link is never listed; retrieve it by id. The filters combine;\nsend a cursor with the same filters as the page that issued it.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": ""
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "closed",
+                    "expired"
+                  ]
+                }
+              ]
+            },
+            "description": "Only links in this status: active, closed or expired (an active or\nclosed link past its expiry). Omit it for every listed link."
+          },
+          {
+            "name": "createdFrom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Only links created at or after this RFC 3339 time."
+          },
+          {
+            "name": "createdTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Only links created before this RFC 3339 time."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "description": "Page size, at most 100; 0 or omitted means 20."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "The `nextCursor` of the previous page; omit it for the first page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the list.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.ListPaymentLinksResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 600,
+          "windowSeconds": 60
+        }
+      },
+      "post": {
+        "operationId": "PaymentLinkService_CreatePaymentLink",
+        "tags": [
+          "PaymentLinkService"
+        ],
+        "summary": "Create payment link",
+        "description": "Creates an active payment link. A business that is not live answers\n`403 merchant_not_live`, and an archived project `403 project_archived`.\nA retry with the same `Idempotency-Key` and\nbody answers the first link with `Idempotent-Replayed: true`; the key\nwith another body answers `422 idempotency_key_reused`.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A key you choose, unique per request you mean (FIN-001): 1 to 255 printable ASCII characters, kept at least 24 hours. A retry with the same key and body answers with the first status and the object as it stands now, and nothing is done twice; the same key with another body is `422 idempotency_key_reused`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[\\x20-\\x7E]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payment.v1.CreatePaymentLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.PaymentLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Idempotency"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 60,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payment-links/{id}": {
+      "get": {
+        "operationId": "PaymentLinkService_GetPaymentLink",
+        "tags": [
+          "PaymentLinkService"
+        ],
+        "summary": "Get payment link",
+        "description": "Retrieves one payment link of your project, a canceled one included.\nA link of another project answers `404 payment_link_not_found`, as an\nunknown id does.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^pl_[0-9a-f-]{36}$"
+            },
+            "description": "The link's id (`pl_…`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.PaymentLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 600,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payment-links/{id}/cancel": {
+      "post": {
+        "operationId": "PaymentLinkService_CancelPaymentLink",
+        "tags": [
+          "PaymentLinkService"
+        ],
+        "summary": "Cancel payment link",
+        "description": "Cancels a link that took no payment: it is no longer listed and its\ncheckout page says it was canceled. A link that took any payment,\npending or paid, answers `409 payment_link_has_payments`: close it\ninstead. A canceled link is answered as it is. No `Idempotency-Key`,\nas for close.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^pl_[0-9a-f-]{36}$"
+            },
+            "description": "The link's id (`pl_…`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.PaymentLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 60,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payment-links/{id}/close": {
+      "post": {
+        "operationId": "PaymentLinkService_ClosePaymentLink",
+        "tags": [
+          "PaymentLinkService"
+        ],
+        "summary": "Close payment link",
+        "description": "Stops an active link taking payments. A link already closed, or past\nits expiry, is answered as it is; a canceled one answers\n`409 invalid_state_transition`. It moves no money and is idempotent by\nstate, so it takes no `Idempotency-Key`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^pl_[0-9a-f-]{36}$"
+            },
+            "description": "The link's id (`pl_…`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.PaymentLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 60,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payment-links/{id}/reopen": {
+      "post": {
+        "operationId": "PaymentLinkService_ReopenPaymentLink",
+        "tags": [
+          "PaymentLinkService"
+        ],
+        "summary": "Reopen payment link",
+        "description": "Lets a closed link take payments again. An active link is answered as\nit is; one past its expiry, or canceled, answers\n`409 invalid_state_transition`. A business that is not live answers\n`403 merchant_not_live`, and an archived project `403 project_archived`.\nNo `Idempotency-Key`, as for close.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^pl_[0-9a-f-]{36}$"
+            },
+            "description": "The link's id (`pl_…`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.PaymentLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 60,
           "windowSeconds": 60
         }
       }
@@ -1722,6 +2287,46 @@
         "description": "CardMethod is a card paid on the provider's page. It has no detail yet;\nfields arrive by addition.",
         "properties": {}
       },
+      "merchant.payment.v1.CreatePaymentLinkRequest": {
+        "type": "object",
+        "description": "CreatePaymentLinkRequest is the payment link to create.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "description": "What the payer sees the link is for: 1 to 120 characters once the\nspaces around it are trimmed, no control characters."
+          },
+          "amount": {
+            "$ref": "#/components/schemas/type.v1.MoneyInput",
+            "description": "What every payer pays: a positive IDR amount with at most 2 decimals.\nOmit it, or send `null`, to let the payer enter the amount."
+          },
+          "instruments": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$"
+            },
+            "maxItems": 30,
+            "description": "The instruments the payer may choose from (\"BCA\", \"QRIS\", \"GOPAY\"),\nat most 30, each once: virtual accounts, QRIS and e-wallets. Omit it,\nor send `[]`, to offer every instrument the payer can use."
+          },
+          "successRedirectUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^(https://.+)?$",
+            "description": "Your page for a payer who paid: an absolute `https` URL, at most 2048\ncharacters. Omit it for none."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the link stops taking payments, in the future. Omit it, or send\n`null`, for a link that never expires."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
       "merchant.payment.v1.CreatePaymentRequest": {
         "type": "object",
         "description": "CreatePaymentRequest is the payment you ask the payer for.",
@@ -2113,6 +2718,37 @@
               "$ref": "#/components/schemas/merchant.payment.v1.Dispute"
             },
             "description": "The page, newest opened first."
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether another page follows."
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "The cursor of the next page; \"\" on the last page."
+          }
+        },
+        "required": [
+          "object",
+          "data",
+          "hasMore",
+          "nextCursor"
+        ]
+      },
+      "merchant.payment.v1.ListPaymentLinksResponse": {
+        "type": "object",
+        "description": "ListPaymentLinksResponse is a page of payment links (API-001 §4.4).",
+        "properties": {
+          "object": {
+            "type": "string",
+            "description": "Always \"list\"."
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/merchant.payment.v1.PaymentLink"
+            },
+            "description": "The page, newest first."
           },
           "hasMore": {
             "type": "boolean",
@@ -2695,6 +3331,101 @@
         },
         "required": [
           "object"
+        ]
+      },
+      "merchant.payment.v1.PaymentLink": {
+        "type": "object",
+        "description": "PaymentLink is a shareable checkout page that collects payments for your\nproject. Each payer who pays through it makes a payment whose\n`paymentLink` is the link's id.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The link's id (`pl_…`)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"payment_link\"."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the payer sees the link is for."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What every payer pays; `null` when the payer enters the amount."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "closed",
+                  "expired",
+                  "canceled"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "active: takes payments. closed: takes none; reopen it to take them\nagain. expired: past `expiresAt`, takes none and cannot be reopened.\ncanceled: canceled before it took any payment; final. Accept a value\nyou do not know yet."
+          },
+          "instruments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The instruments the payer may choose from, in code order; `[]` offers\nevery instrument the payer can use."
+          },
+          "successRedirectUrl": {
+            "type": "string",
+            "description": "Your page for a payer who paid; \"\" when none."
+          },
+          "url": {
+            "type": "string",
+            "description": "The checkout page to share with payers."
+          },
+          "paidCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many payments through the link were paid."
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the link was created."
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the link stops taking payments; `null` when it never does."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "name",
+          "amount",
+          "status",
+          "instruments",
+          "successRedirectUrl",
+          "url",
+          "paidCount",
+          "createdAt",
+          "expiresAt"
         ]
       },
       "merchant.payment.v1.PaymentMethod": {

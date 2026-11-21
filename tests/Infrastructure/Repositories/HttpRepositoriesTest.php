@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Zeny\Domain\RequestOptions;
 use Zeny\Infrastructure\Http\RequestSpec;
 use Zeny\Infrastructure\Repositories\HttpDisputeRepository;
+use Zeny\Infrastructure\Repositories\HttpPaymentLinkRepository;
 use Zeny\Infrastructure\Repositories\HttpPaymentRepository;
 use Zeny\Infrastructure\Repositories\HttpPayoutRepository;
 use Zeny\Infrastructure\Repositories\HttpTestFundsRepository;
@@ -18,6 +19,7 @@ function sent(RequestSpec $spec): array
 
 $amount = ['value' => '150000', 'currency' => 'IDR'];
 $key = new RequestOptions('k-1');
+$link = ['name' => 'Order #1042', 'amount' => $amount, 'instruments' => ['QRIS'], 'successRedirectUrl' => 'https://shop.example/thanks'];
 $payout = ['reference' => 'po-1', 'beneficiary' => 'ben_1', 'amount' => $amount];
 
 /** @var array<string, array{Closure(FakeTransport): mixed, array{string, string, array<string, string|int|null>, array<string, mixed>|null, string|null}}> $cases */
@@ -33,6 +35,34 @@ $cases = [
     'payments.createAttempt' => [
         fn (FakeTransport $t) => (new HttpPaymentRepository($t))->createAttempt('pay_1', ['instrument' => 'qris'], $key),
         ['POST', '/payments/pay_1/attempts', [], ['instrument' => 'qris'], 'k-1'],
+    ],
+    'paymentLinks.create' => [
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->create($link, $key),
+        ['POST', '/payment-links', [], $link, 'k-1'],
+    ],
+    'paymentLinks.retrieve' => [
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->retrieve('pl_1'),
+        ['GET', '/payment-links/pl_1', [], null, null],
+    ],
+    'paymentLinks.list' => [
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->list(['status' => 'active', 'createdFrom' => '2026-11-01T00:00:00Z', 'limit' => 5, 'cursor' => 'c1']),
+        ['GET', '/payment-links', ['status' => 'active', 'createdFrom' => '2026-11-01T00:00:00Z', 'limit' => 5, 'cursor' => 'c1'], null, null],
+    ],
+    'paymentLinks.list without filters' => [
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->list(),
+        ['GET', '/payment-links', [], null, null],
+    ],
+    'paymentLinks.close' => [
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->close('pl_1'),
+        ['POST', '/payment-links/pl_1/close', [], [], null],
+    ],
+    'paymentLinks.reopen' => [
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->reopen('pl_1', $key),
+        ['POST', '/payment-links/pl_1/reopen', [], [], 'k-1'],
+    ],
+    'paymentLinks.cancel' => [
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->cancel('pl_1'),
+        ['POST', '/payment-links/pl_1/cancel', [], [], null],
     ],
     'payouts.create' => [
         fn (FakeTransport $t) => (new HttpPayoutRepository($t))->create($payout, $key),

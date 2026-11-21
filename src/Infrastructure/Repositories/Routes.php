@@ -18,6 +18,8 @@ final class Routes
 
     public const TEST_FUNDS = '/test-funds';
 
+    public const PAYMENT_LINKS = '/payment-links';
+
     /** Fills each `{id}` slot of `$template` in order with a validated, URL-encoded id. */
     public static function fill(string $template, mixed ...$ids): string
     {
@@ -59,5 +61,16 @@ final class Routes
     public static function dispute(string $id): string
     {
         return self::fill('/disputes/{id}', $id);
+    }
+
+    public static function paymentLink(string $id): string
+    {
+        return self::fill('/payment-links/{id}', $id);
+    }
+
+    /** @param 'close'|'reopen'|'cancel' $action */
+    public static function paymentLinkAction(string $id, string $action): string
+    {
+        return self::fill('/payment-links/{id}/'.$action, $id);
     }
 }

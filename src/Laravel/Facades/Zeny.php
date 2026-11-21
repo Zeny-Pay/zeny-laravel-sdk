@@ -6,6 +6,7 @@ namespace Zeny\Laravel\Facades;
 
 use Illuminate\Support\Facades\Facade;
 use Zeny\Domain\Repositories\DisputeRepository;
+use Zeny\Domain\Repositories\PaymentLinkRepository;
 use Zeny\Domain\Repositories\PaymentRepository;
 use Zeny\Domain\Repositories\PayoutRepository;
 use Zeny\Domain\Repositories\TestFundsRepository;
@@ -19,6 +20,11 @@ use Zeny\Zeny as Client;
  */
 final class Zeny extends Facade
 {
+    public static function paymentLinks(): PaymentLinkRepository
+    {
+        return self::client()->paymentLinks;
+    }
+
     public static function payments(): PaymentRepository
     {
         return self::client()->payments;

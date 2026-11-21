@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Zeny;
 
 use Zeny\Domain\Repositories\DisputeRepository;
+use Zeny\Domain\Repositories\PaymentLinkRepository;
 use Zeny\Domain\Repositories\PaymentRepository;
 use Zeny\Domain\Repositories\PayoutRepository;
 use Zeny\Domain\Repositories\TestFundsRepository;
 use Zeny\Infrastructure\Config;
 use Zeny\Infrastructure\Http\Psr18Transport;
 use Zeny\Infrastructure\Repositories\HttpDisputeRepository;
+use Zeny\Infrastructure\Repositories\HttpPaymentLinkRepository;
 use Zeny\Infrastructure\Repositories\HttpPaymentRepository;
 use Zeny\Infrastructure\Repositories\HttpPayoutRepository;
 use Zeny\Infrastructure\Repositories\HttpTestFundsRepository;
@@ -28,6 +30,9 @@ use Zeny\Infrastructure\Webhooks;
  */
 final class Zeny
 {
+    /** Create and manage payment links (hosted checkout pages). */
+    public readonly PaymentLinkRepository $paymentLinks;
+
     /** Create and read payments and their attempts. */
     public readonly PaymentRepository $payments;
 
@@ -56,6 +61,7 @@ final class Zeny
     {
         // The config and transport are not stored: the key stays out of reach of the client's fields.
         $transport = new Psr18Transport(Config::resolve($apiKey, $options));
+        $this->paymentLinks = new HttpPaymentLinkRepository($transport);
         $this->payments = new HttpPaymentRepository($transport);
         $this->payouts = new HttpPayoutRepository($transport);
         $this->disputes = new HttpDisputeRepository($transport);

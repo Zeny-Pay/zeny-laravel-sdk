@@ -15,11 +15,14 @@ final class PhpStanTypeWriter
         'Money' => 'type.v1.Money',
         'Payment' => 'merchant.payment.v1.Payment',
         'PaymentAttempt' => 'merchant.payment.v1.PaymentAttempt',
+        'PaymentLink' => 'merchant.payment.v1.PaymentLink',
+        'PaymentLinkList' => 'merchant.payment.v1.ListPaymentLinksResponse',
         'Payout' => 'merchant.payout.v1.Payout',
         'Dispute' => 'merchant.payment.v1.Dispute',
         'DisputeList' => 'merchant.payment.v1.ListDisputesResponse',
         'TestFunds' => 'merchant.balance.v1.TestFunds',
         'CreatePaymentParams' => 'merchant.payment.v1.CreatePaymentRequest',
+        'CreatePaymentLinkParams' => 'merchant.payment.v1.CreatePaymentLinkRequest',
         'CreatePayoutParams' => 'merchant.payout.v1.CreatePayoutRequest',
         'CreateTestFundsParams' => 'merchant.balance.v1.CreateTestFundsRequest',
         'ApiErrorBody' => 'Error',
@@ -32,6 +35,8 @@ final class PhpStanTypeWriter
     private const ATTEMPTS_PATH = '/api/merchant/v1/payments/{id}/attempts';
 
     private const DISPUTES_PATH = '/api/merchant/v1/disputes';
+
+    private const PAYMENT_LINKS_PATH = '/api/merchant/v1/payment-links';
 
     private readonly SchemaTyper $typer;
 
@@ -91,6 +96,7 @@ final class PhpStanTypeWriter
         return [
             'CreatePaymentAttemptParams' => $this->typer->type($schema),
             'ListDisputesParams' => $this->queryShape($this->operation(self::DISPUTES_PATH, 'get')),
+            'ListPaymentLinksParams' => $this->queryShape($this->operation(self::PAYMENT_LINKS_PATH, 'get')),
         ];
     }
 
