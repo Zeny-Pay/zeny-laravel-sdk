@@ -45,23 +45,26 @@ interface PaymentLinkRepository
     public function list(array $params = []): ZenyObject;
 
     /**
+     * close, reopen and cancel are idempotent by state, so the API reads no
+     * body and no Idempotency-Key for them and none is sent; a retry is safe.
+     *
      * Stops an active link taking payments; reopen it to take them again.
      *
      * @return ZenyObject<PaymentLink>
      */
-    public function close(string $id, ?RequestOptions $options = null): ZenyObject;
+    public function close(string $id): ZenyObject;
 
     /**
      * Lets a closed link take payments again. An expired link cannot reopen.
      *
      * @return ZenyObject<PaymentLink>
      */
-    public function reopen(string $id, ?RequestOptions $options = null): ZenyObject;
+    public function reopen(string $id): ZenyObject;
 
     /**
      * Cancels a link that has taken no payment. Final.
      *
      * @return ZenyObject<PaymentLink>
      */
-    public function cancel(string $id, ?RequestOptions $options = null): ZenyObject;
+    public function cancel(string $id): ZenyObject;
 }

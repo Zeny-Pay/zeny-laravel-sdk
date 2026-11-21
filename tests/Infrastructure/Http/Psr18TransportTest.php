@@ -10,6 +10,8 @@ use Zeny\Domain\Errors\ConnectionError;
 use Zeny\Domain\Errors\InvalidRequestError;
 use Zeny\Infrastructure\Http\RequestSpec;
 use Zeny\Infrastructure\Http\Version;
+use Zeny\Tests\Support\PsrNetworkError;
+use Zeny\Tests\Support\PsrRequestError;
 use Zeny\Tests\Support\TransportHarness;
 
 /** @return array{error: array{type: string, code: string, message: string}} */
@@ -89,6 +91,27 @@ test('POST with an empty array body sends {}, never []', function (): void {
     $t->transport->request(RequestSpec::post('/x', []));
 
     expect((string) $t->request(0)->getBody())->toBe('{}');
+});
+
+test('an action is a POST with an empty body', function (): void {
+    $t = new TransportHarness([TransportHarness::json(200, [])]);
+    $t->transport->request(RequestSpec::action('/payment-links/pl_1/close'));
+
+    expect([$t->request(0)->getMethod(), (string) $t->request(0)->getBody()])->toBe(['POST', '']);
+});
+
+test('an action sends no content type and no idempotency key', function (): void {
+    $t = new TransportHarness([TransportHarness::json(200, [])]);
+    $t->transport->request(RequestSpec::action('/payment-links/pl_1/close'));
+
+    expect([$t->request(0)->hasHeader('Content-Type'), $t->request(0)->hasHeader('Idempotency-Key')])->toBe([false, false]);
+});
+
+test('a failed action is retried, still without a key', function (): void {
+    $t = new TransportHarness([TransportHarness::json(503, apiErrorBody('provider_unavailable', 'down')), TransportHarness::json(200, [])]);
+    $t->transport->request(RequestSpec::action('/payment-links/pl_1/close'));
+
+    expect([count($t->requests), $t->request(1)->hasHeader('Idempotency-Key')])->toBe([2, false]);
 });
 
 test('the caller key is forwarded as given', function (): void {
@@ -225,11 +248,80 @@ test('a connection failure is retried', function (): void {
     expect(count($t->requests))->toBe(2);
 });
 
-test('a redirect is an error, not followed', function (): void {
+test('a redirect is a ConnectionError network_error, not followed', function (): void {
+    $t = new TransportHarness([new Response(302, ['Location' => 'https://evil.example/'])], 0);
+    $error = $t->caught(RequestSpec::post('/x'));
+
+    expect([get_class($error), $error->code, $error->statusCode, $error->idempotencyKey])->toBe([ConnectionError::class, 'network_error', null, 'uuid-1']);
+});
+
+test('a redirect is retried with the same idempotency key', function (): void {
     $t = new TransportHarness([new Response(302, ['Location' => 'https://evil.example/']), TransportHarness::json(200, [])]);
+    $t->transport->request(RequestSpec::post('/x'));
+
+    expect(array_map(fn ($r): string => $r->getHeaderLine('Idempotency-Key'), $t->requests))->toBe(['uuid-1', 'uuid-1']);
+});
+
+test('a redirect is retried as an unknown outcome, never at its Location', function (): void {
+    $t = new TransportHarness([new Response(301, ['Location' => 'https://evil.example/']), TransportHarness::json(200, [])]);
+    $t->transport->request(RequestSpec::get('/x'));
+
+    expect(array_map(fn ($r): string => $r->getUri()->getHost(), $t->requests))->toBe(['snorlax.usezeny.com', 'snorlax.usezeny.com']);
+});
+
+test('a non-PSR exception from the client becomes a ConnectionError', function (): void {
+    $t = new TransportHarness([new InvalidArgumentException('bad header: Bearer '.TransportHarness::KEY)], 0);
+
+    expect(get_class($t->caught(RequestSpec::get('/x'))))->toBe(ConnectionError::class);
+});
+
+test('a non-PSR exception never reaches the caller with the key', function (): void {
+    $t = new TransportHarness([new InvalidArgumentException('bad header: Bearer '.TransportHarness::KEY)], 0);
     $error = $t->caught(RequestSpec::get('/x'));
 
-    expect([get_class($error), $error->code, $error->statusCode, count($t->requests)])->toBe([ApiError::class, 'unexpected_response', 302, 1]);
+    expect([str_contains($error->getMessage(), TransportHarness::KEY), $error->getPrevious()])->toBe([false, null]);
+});
+
+$timeoutMessages = ['timeout' => 'Request timeout', 'timed out' => 'Operation timed out', 'Idle timeout' => 'Idle timeout reached for "https://x".'];
+foreach ($timeoutMessages as $name => $message) {
+    test("a PSR-18 network error saying \"{$name}\" is a timeout", function () use ($message): void {
+        $t = new TransportHarness([new PsrNetworkError($message, new Request('GET', 'https://x'))], 0);
+
+        expect($t->caught(RequestSpec::get('/x'))->code)->toBe('timeout');
+    });
+}
+
+test('a PSR-18 request error saying timeout is a timeout', function (): void {
+    $t = new TransportHarness([new PsrRequestError('Idle timeout', new Request('GET', 'https://x'))], 0);
+
+    expect($t->caught(RequestSpec::get('/x'))->code)->toBe('timeout');
+});
+
+test('a PSR-18 network error about anything else is network_error', function (): void {
+    $t = new TransportHarness([new PsrNetworkError('Connection refused', new Request('GET', 'https://x'))], 0);
+
+    expect($t->caught(RequestSpec::get('/x'))->code)->toBe('network_error');
+});
+
+test('a non-PSR exception saying timeout is network_error', function (): void {
+    $t = new TransportHarness([new RuntimeException('timeout')], 0);
+
+    expect($t->caught(RequestSpec::get('/x'))->code)->toBe('network_error');
+});
+
+test('POST sends an empty metadata map as {}', function (): void {
+    $t = new TransportHarness([TransportHarness::json(201, [])]);
+    $t->transport->request(RequestSpec::post('/x', ['reference' => 'o-1', 'metadata' => []]));
+
+    expect((string) $t->request(0)->getBody())->toBe('{"reference":"o-1","metadata":{}}');
+});
+
+test('an empty metadata map read from a response goes back as {}', function (): void {
+    $t = new TransportHarness([new Response(200, [], '{"id":"pay_1","metadata":{}}'), TransportHarness::json(201, [])]);
+    $payment = $t->transport->request(RequestSpec::get('/payments/pay_1'));
+    $t->transport->request(RequestSpec::post('/x', ['metadata' => $payment['metadata']]));
+
+    expect((string) $t->request(1)->getBody())->toBe('{"metadata":{}}');
 });
 
 test('idempotentReplayed is read from the Idempotent-Replayed header', function (): void {

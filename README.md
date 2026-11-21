@@ -95,9 +95,9 @@ php artisan vendor:publish --tag=zeny-config
 | `ZENY_WEBHOOK_SECRET` | none | Webhook signing secret (`whsec_...`) for the `zeny.webhook` middleware. |
 | `ZENY_BASE_URL` | from the key | API host, for white-label brands only. |
 | `ZENY_MAX_RETRIES` | `2` | Automatic retries of transient failures. |
-| `ZENY_TIMEOUT_MS` | `30000` | Timeout of each request, in milliseconds. |
+| `ZENY_TIMEOUT_MS` | `30000` | Timeout of each request, in milliseconds. Leave it unset when you bind your own HTTP client. |
 
-The client is a lazy singleton: a missing or malformed key throws when it is first used, not at boot. Inject `Zeny\Zeny` or use the facade (`Zeny::payments()`, `Zeny::paymentLinks()`, ...). To send requests through your own HTTP client, bind a PSR-18 client as `zeny.http_client` in the container; that client then owns its timeout and redirect policy.
+The client is a lazy singleton: a missing or malformed key throws when it is first used, not at boot. Inject `Zeny\Zeny` or use the facade (`Zeny::payments()`, `Zeny::paymentLinks()`, ...). To send requests through your own HTTP client, bind a PSR-18 client as `zeny.http_client` in the container; that client then owns its timeout and redirect policy, and setting `ZENY_TIMEOUT_MS` as well throws.
 
 ## Webhooks
 
@@ -244,7 +244,7 @@ try {
 
 ## Environments and `baseUrl`
 
-The key prefix picks the environment: `sk_test_` talks to Sandbox, `sk_live_` to Production. A Sandbox key is refused in Production and the other way round. Keep keys in configuration, not code. A white-label brand has its own host: set `ZENY_BASE_URL`, or `baseUrl` when you build the client yourself. `timeoutMs` (default 30000), `maxRetries` (default 2) and `httpClient` (any PSR-18 client; the default is Guzzle with redirects off) are the other options.
+The key prefix picks the environment: `sk_test_` talks to Sandbox, `sk_live_` to Production. A Sandbox key is refused in Production and the other way round. Keep keys in configuration, not code. A white-label brand has its own host: set `ZENY_BASE_URL`, or `baseUrl` when you build the client yourself. `timeoutMs` (default 30000), `maxRetries` (default 2) and `httpClient` (any PSR-18 client; the default is Guzzle with redirects off) are the other options. A custom `httpClient` owns its timeout, so it cannot be combined with `timeoutMs`.
 
 ```php
 use Zeny\Zeny;

@@ -8,7 +8,7 @@ use Zeny\Infrastructure\Config;
 const CONFIG_TEST_KEY = 'sk_test_configkey123';
 const CONFIG_LIVE_KEY = 'sk_live_configkey123';
 
-const BASE_URL_ERROR = 'baseUrl must be an https URL (http only for localhost, 127.0.0.1 or [::1])';
+const BASE_URL_ERROR = 'baseUrl must be an https URL with no query or fragment (http only for localhost, 127.0.0.1 or [::1])';
 
 test('a test key selects the test base URL', function (): void {
     expect(Config::resolve(CONFIG_TEST_KEY)->baseUrl)->toBe('https://snorlax.usezeny.com');
@@ -43,6 +43,7 @@ $refused = [
     'https://user@pay.example.com', 'https://user:pw@pay.example.com', 'https://:pw@pay.example.com',
     'http://localhost.evil.com', 'http://localhost@evil.com', 'http://evil.com/localhost',
     'http://127.0.0.1.evil.com', 'http://[::1].evil.com', 'https://evil.com\\@good.com', "https://pay.example.com\n",
+    'https://pay.example.com/v?x=1', 'https://pay.example.com/v#top', 'https://pay.example.com/?', 'https://pay.example.com/#',
 ];
 foreach ($refused as $index => $baseUrl) {
     test("baseUrl case {$index} is refused", function () use ($baseUrl): void {
@@ -97,10 +98,29 @@ test('a given PSR-18 client is used as is', function (): void {
     expect(Config::resolve(CONFIG_TEST_KEY, ['httpClient' => $client])->httpClient)->toBe($client);
 });
 
+test('a custom httpClient with an explicit timeoutMs is refused', function (): void {
+    expect(fn () => Config::resolve(CONFIG_TEST_KEY, ['httpClient' => new Client, 'timeoutMs' => 1500]))
+        ->toThrow(InvalidArgumentException::class, 'timeoutMs cannot be combined with httpClient');
+});
+
+test('a custom httpClient with the default timeoutMs is accepted', function (): void {
+    $client = new Client;
+
+    expect(Config::resolve(CONFIG_TEST_KEY, ['httpClient' => $client])->timeoutMs)->toBe(30000);
+});
+
 test('a httpClient that is not PSR-18 is refused', function (): void {
     expect(fn () => Config::resolve(CONFIG_TEST_KEY, ['httpClient' => new stdClass]))->toThrow(InvalidArgumentException::class, 'httpClient must implement');
 });
 
 test('dumping a config never prints the key', function (): void {
     expect(print_r(Config::resolve('sk_test_CONFIGDUMPMARK'), true))->not->toContain('CONFIGDUMPMARK');
+});
+
+test('Symfony VarDumper of a config never prints the secret', function (): void {
+    expect(cliDump(Config::resolve('sk_test_CONFIGDUMPMARK')))->not->toContain('CONFIGDUMPMARK');
+});
+
+test('var_export of a config never prints the secret', function (): void {
+    expect(var_export(Config::resolve('sk_test_CONFIGDUMPMARK'), true))->not->toContain('CONFIGDUMPMARK');
 });

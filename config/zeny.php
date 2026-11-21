@@ -18,5 +18,7 @@ return [
 
     'max_retries' => env('ZENY_MAX_RETRIES', 2),
 
-    'timeout_ms' => env('ZENY_TIMEOUT_MS', 30000),
+    // Leave null for the 30000 ms default. A bound zeny.http_client owns its
+    // own timeout, so setting this as well is refused.
+    'timeout_ms' => env('ZENY_TIMEOUT_MS'),
 ];

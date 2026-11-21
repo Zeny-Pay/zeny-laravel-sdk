@@ -65,3 +65,7 @@ test('iterates over the body', function () {
 test('lastResponse carries the response facts', function () {
     expect(payment()->lastResponse->requestId)->toBe('req_1');
 });
+
+test('json_encode keeps an empty metadata map an object', function () {
+    expect(json_encode(payment(['id' => 'pay_1', 'metadata' => []])))->toBe('{"id":"pay_1","metadata":{}}');
+});

@@ -59,12 +59,11 @@ final class ZenyObject implements ArrayAccess, IteratorAggregate, JsonSerializab
     }
 
     /**
-     * An empty body is `{}`, as the API sent it, never `[]`.
-     *
-     * @return T|stdClass
+     * The body as the API sent it: an empty body is `{}`, and so is an empty
+     * map such as `metadata`, never `[]`.
      */
-    public function jsonSerialize(): array|stdClass
+    public function jsonSerialize(): stdClass
     {
-        return $this->body === [] ? new stdClass : $this->body;
+        return JsonShape::encode($this->body);
     }
 }

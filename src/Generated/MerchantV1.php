@@ -363,4 +363,8 @@ namespace Zeny\Generated;
  *     data: S_merchant_payout_v1_PayoutEvent_Data,
  * }
  */
-final class MerchantV1 {}
+final class MerchantV1
+{
+    /** Properties that hold a JSON object with no declared fields (a map or a free-form object). */
+    public const OBJECT_FIELDS = ['card', 'metadata', 'qris'];
+}

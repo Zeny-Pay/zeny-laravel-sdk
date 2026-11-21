@@ -47,15 +47,29 @@ final class Retry
         if (preg_match('/^\d+$/', $value) === 1) {
             return (int) min((float) $value, self::MAX_RETRY_AFTER_SEC);
         }
-        $date = preg_match(self::HTTP_DATE, $value) === 1
-            ? DateTimeImmutable::createFromFormat('D, d M Y H:i:s \G\M\T', $value, new DateTimeZone('UTC'))
-            : false;
-        if ($date === false) {
+        $timestamp = self::imfFixdate($value);
+        if ($timestamp === null) {
             return null;
         }
-        $seconds = (int) ceil(($date->getTimestamp() * 1000 - $nowMs) / 1000);
+        $seconds = (int) ceil(($timestamp * 1000 - $nowMs) / 1000);
 
         return min(max(0, $seconds), self::MAX_RETRY_AFTER_SEC);
+    }
+
+    /**
+     * Unix seconds of an IMF-fixdate, or null. The weekday is ignored, as
+     * Date.parse does (PHP's `D` would move the date to that weekday), and an
+     * impossible date such as 31 Feb is null rather than rolled into March.
+     */
+    private static function imfFixdate(string $value): ?int
+    {
+        if (preg_match(self::HTTP_DATE, $value) !== 1) {
+            return null;
+        }
+        $rest = substr($value, 5, -4);
+        $date = DateTimeImmutable::createFromFormat('!d M Y H:i:s', $rest, new DateTimeZone('UTC'));
+
+        return $date !== false && strcasecmp($date->format('d M Y H:i:s'), $rest) === 0 ? $date->getTimestamp() : null;
     }
 
     /**

@@ -9,6 +9,7 @@ use Zeny\Domain\RequestOptions;
 use Zeny\Domain\ZenyObject;
 use Zeny\Generated\MerchantV1;
 use Zeny\Infrastructure\Http\HttpTransport;
+use Zeny\Infrastructure\Http\RequestSpec;
 
 /**
  * PaymentLinkRepository over the Merchant API. Close, reopen and cancel are
@@ -45,29 +46,29 @@ final class HttpPaymentLinkRepository implements PaymentLinkRepository
         return $links;
     }
 
-    public function close(string $id, ?RequestOptions $options = null): ZenyObject
+    public function close(string $id): ZenyObject
     {
-        return $this->act($id, 'close', $options);
+        return $this->act($id, 'close');
     }
 
-    public function reopen(string $id, ?RequestOptions $options = null): ZenyObject
+    public function reopen(string $id): ZenyObject
     {
-        return $this->act($id, 'reopen', $options);
+        return $this->act($id, 'reopen');
     }
 
-    public function cancel(string $id, ?RequestOptions $options = null): ZenyObject
+    public function cancel(string $id): ZenyObject
     {
-        return $this->act($id, 'cancel', $options);
+        return $this->act($id, 'cancel');
     }
 
     /**
      * @param  'close'|'reopen'|'cancel'  $action
      * @return ZenyObject<PaymentLink>
      */
-    private function act(string $id, string $action, ?RequestOptions $options): ZenyObject
+    private function act(string $id, string $action): ZenyObject
     {
         /** @var ZenyObject<PaymentLink> $link */
-        $link = Calls::post($this->transport, Routes::paymentLinkAction($id, $action), [], $options);
+        $link = $this->transport->request(RequestSpec::action(Routes::paymentLinkAction($id, $action)));
 
         return $link;
     }

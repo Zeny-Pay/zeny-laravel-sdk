@@ -57,7 +57,9 @@ final class PhpStanTypeWriter
         return "<?php\n\n// generated — do not edit\n// Source: openapi/merchant.v1.json (composer generate)\n\n"
             ."declare(strict_types=1);\n\nnamespace Zeny\\Generated;\n\n/**\n"
             ." * PHPStan shapes of the Merchant API v1 contract.\n *\n"
-            .implode("\n", $lines)."\n */\nfinal class MerchantV1 {}\n";
+            .implode("\n", $lines)."\n */\nfinal class MerchantV1\n{\n"
+            ."    /** Properties that hold a JSON object with no declared fields (a map or a free-form object). */\n"
+            ."    public const OBJECT_FIELDS = ['".implode("', '", (new ObjectFields($this->schemas()))->names())."'];\n}\n";
     }
 
     /** @return array<string, string> */

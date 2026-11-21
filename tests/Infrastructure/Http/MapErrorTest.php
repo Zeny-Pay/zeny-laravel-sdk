@@ -15,13 +15,16 @@ use Zeny\Domain\Errors\RateLimitError;
 use Zeny\Domain\Errors\ZenyError;
 use Zeny\Infrastructure\Http\MapError;
 
-/**
- * @param  array<string, mixed>  $extra
- * @return array{error: array<string, mixed>}
- */
-function errorBody(string $type, array $extra = []): array
+/** A value as the transport hands it over: JSON objects decoded to stdClass. */
+function wire(mixed $value): mixed
 {
-    return ['error' => ['type' => $type, 'code' => 'c', 'message' => 'm'] + $extra];
+    return json_decode(json_encode($value, JSON_THROW_ON_ERROR), false);
+}
+
+/** @param  array<string, mixed>  $extra */
+function errorBody(string $type, array $extra = []): mixed
+{
+    return wire(['error' => ['type' => $type, 'code' => 'c', 'message' => 'm'] + $extra]);
 }
 
 $classes = [
@@ -50,9 +53,9 @@ test('an unknown type keeps its type string', function (): void {
     expect(MapError::map(400, errorBody('brand_new'), null)->type)->toBe('brand_new');
 });
 
-foreach (['null' => null, 'a string' => 'oops', 'a list' => [1, 2], 'no error key' => ['message' => 'x'], 'error not an object' => ['error' => 'x']] as $name => $body) {
+foreach (['null' => null, 'a string' => 'oops', 'a list' => [1, 2], 'no error key' => ['message' => 'x'], 'error not an object' => ['error' => 'x'], 'error an empty list' => ['error' => []], 'error a list' => ['error' => [['type' => 'conflict']]]] as $name => $body) {
     test("a body that is {$name} gives unexpected_response", function () use ($body): void {
-        $error = MapError::map(502, $body, 'req_1');
+        $error = MapError::map(502, wire($body), 'req_1');
 
         expect([get_class($error), $error->code, $error->getMessage()])
             ->toBe([ApiError::class, 'unexpected_response', 'Unexpected response from the API (HTTP 502)']);
@@ -67,7 +70,7 @@ test('fields are copied from the body', function (): void {
 });
 
 test('missing fields get defaults', function (): void {
-    $error = MapError::map(500, ['error' => ['type' => 42]], null);
+    $error = MapError::map(500, wire(['error' => ['type' => 42]]), null);
 
     expect([$error->type, $error->code, $error->getMessage(), $error->param])->toBe(['api_error', 'unknown', 'API error (HTTP 500)', null]);
 });
@@ -90,6 +93,12 @@ test('details keep only well-formed entries', function (): void {
 
 test('details that are not a list become empty', function (): void {
     expect(MapError::map(400, errorBody('invalid_request', ['details' => ['a' => 1]]), null)->details)->toBe([]);
+});
+
+test('an empty error object is a record with defaults', function (): void {
+    $error = MapError::map(500, json_decode('{"error":{}}', false), null);
+
+    expect([$error->type, $error->code])->toBe(['api_error', 'unknown']);
 });
 
 test('a rate limit carries Retry-After', function (): void {

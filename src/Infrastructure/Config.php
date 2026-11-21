@@ -50,7 +50,8 @@ final class Config
      * Turns the key and options into a validated config. Options: `baseUrl`,
      * `maxRetries` (default 2), `timeoutMs` (default 30000) and `httpClient`
      * (a PSR-18 client; the default is Guzzle with the timeout set and
-     * redirects off). Invalid values throw InvalidArgumentException.
+     * redirects off). A custom client owns its timeout, so passing `timeoutMs`
+     * with it is refused. Invalid values throw InvalidArgumentException.
      *
      * @param  array<string, mixed>  $options
      */
@@ -64,24 +65,25 @@ final class Config
             self::baseUrl($options['baseUrl'] ?? self::BASE_URLS[$key->mode]),
             self::maxRetries($options['maxRetries'] ?? self::DEFAULT_MAX_RETRIES),
             $timeoutMs,
-            self::httpClient($options['httpClient'] ?? null, $timeoutMs),
+            self::httpClient($options['httpClient'] ?? null, $timeoutMs, isset($options['timeoutMs'])),
         );
     }
 
     /**
      * Returns `$value` without trailing slashes. https for any host, http only
-     * for loopback; userinfo is refused because proxies log it next to the key.
+     * for loopback; userinfo is refused because proxies log it next to the key,
+     * and a query or fragment because every request path is appended to it.
      */
     private static function baseUrl(mixed $value): string
     {
-        $parts = is_string($value) && preg_match('/[\s\\\\]/', $value) !== 1 ? parse_url($value) : false;
+        $parts = is_string($value) && preg_match('/[\s\\\\?#]/', $value) !== 1 ? parse_url($value) : false;
         $scheme = strtolower(is_array($parts) ? ($parts['scheme'] ?? '') : '');
         $host = strtolower(is_array($parts) ? ($parts['host'] ?? '') : '');
         $valid = is_string($value) && is_array($parts) && $host !== ''
             && ! isset($parts['user']) && ! isset($parts['pass'])
             && ($scheme === 'https' || ($scheme === 'http' && in_array($host, self::LOCAL_HOSTS, true)));
         if (! $valid) {
-            throw new InvalidArgumentException('baseUrl must be an https URL (http only for localhost, 127.0.0.1 or [::1])');
+            throw new InvalidArgumentException('baseUrl must be an https URL with no query or fragment (http only for localhost, 127.0.0.1 or [::1])');
         }
 
         return rtrim($value, '/');
@@ -105,13 +107,16 @@ final class Config
         return $value;
     }
 
-    private static function httpClient(mixed $client, int|float $timeoutMs): ClientInterface
+    private static function httpClient(mixed $client, int|float $timeoutMs, bool $timeoutGiven): ClientInterface
     {
         if ($client === null) {
             return new Client(['timeout' => $timeoutMs / 1000, 'allow_redirects' => false, 'http_errors' => false]);
         }
         if (! $client instanceof ClientInterface) {
             throw new InvalidArgumentException('httpClient must implement Psr\Http\Client\ClientInterface');
+        }
+        if ($timeoutGiven) {
+            throw new InvalidArgumentException('timeoutMs cannot be combined with httpClient: set the timeout on your own client');
         }
 
         return $client;

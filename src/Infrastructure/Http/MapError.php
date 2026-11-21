@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Zeny\Infrastructure\Http;
 
+use stdClass;
 use Zeny\Domain\Errors\ApiError;
 use Zeny\Domain\Errors\AuthenticationError;
 use Zeny\Domain\Errors\ConflictError;
@@ -21,6 +22,8 @@ use Zeny\Domain\Errors\ZenyError;
  * Turns a non-2xx response into a typed error. The body is untrusted network
  * input, so its shape is checked field by field; anything unusable becomes an
  * ApiError with code `unexpected_response`, and an unknown `type` a plain ZenyError.
+ * The body is decoded with JSON objects kept as stdClass, so `{}` (a record) and
+ * `[]` (a list) stay distinct, as they are in zeny-node.
  *
  * @phpstan-import-type ErrorDetail from ZenyError
  */
@@ -46,7 +49,7 @@ final class MapError
 
     public static function map(int $status, mixed $body, ?string $requestId, ?int $retryAfterSec = null, ?string $idempotencyKey = null): ZenyError
     {
-        $error = self::isRecord($body) && self::isRecord($body['error'] ?? null) ? $body['error'] : null;
+        $error = $body instanceof stdClass ? self::record($body->error ?? null) : null;
         if ($error === null) {
             return self::unexpected($status, $requestId, $idempotencyKey);
         }
@@ -99,7 +102,8 @@ final class MapError
         }
         $details = [];
         foreach ($value as $detail) {
-            if (is_array($detail) && is_string($detail['param'] ?? null) && is_string($detail['code'] ?? null) && is_string($detail['message'] ?? null)) {
+            $detail = self::record($detail);
+            if ($detail !== null && is_string($detail['param'] ?? null) && is_string($detail['code'] ?? null) && is_string($detail['message'] ?? null)) {
                 $details[] = ['param' => $detail['param'], 'code' => $detail['code'], 'message' => $detail['message']];
             }
         }
@@ -107,10 +111,14 @@ final class MapError
         return $details;
     }
 
-    /** @phpstan-assert-if-true array<mixed> $value */
-    private static function isRecord(mixed $value): bool
+    /**
+     * A JSON object as an array of its fields; null for anything else, a JSON array included.
+     *
+     * @return array<mixed>|null
+     */
+    private static function record(mixed $value): ?array
     {
-        return is_array($value) && ($value === [] || ! array_is_list($value));
+        return $value instanceof stdClass ? get_object_vars($value) : null;
     }
 
     private static function str(mixed $value): ?string

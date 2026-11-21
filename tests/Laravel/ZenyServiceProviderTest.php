@@ -71,6 +71,15 @@ final class ZenyServiceProviderTest extends LaravelTestCase
         $this->assertSame(VerifyZenyWebhook::class, $router->getMiddleware()['zeny.webhook'] ?? null);
     }
 
+    public function test_a_bound_http_client_with_a_timeout_throws(): void
+    {
+        $this->laravel()->instance(ZenyServiceProvider::HTTP_CLIENT, new Client);
+        config(['zeny.timeout_ms' => '1500']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->laravel()->make(Zeny::class);
+    }
+
     public function test_calls_use_the_bound_http_client_and_the_configured_base_url(): void
     {
         $uris = [];

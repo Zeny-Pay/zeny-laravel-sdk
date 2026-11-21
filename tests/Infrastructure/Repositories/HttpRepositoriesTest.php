@@ -54,15 +54,15 @@ $cases = [
     ],
     'paymentLinks.close' => [
         fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->close('pl_1'),
-        ['POST', '/payment-links/pl_1/close', [], [], null],
+        ['POST', '/payment-links/pl_1/close', [], null, null],
     ],
     'paymentLinks.reopen' => [
-        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->reopen('pl_1', $key),
-        ['POST', '/payment-links/pl_1/reopen', [], [], 'k-1'],
+        fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->reopen('pl_1'),
+        ['POST', '/payment-links/pl_1/reopen', [], null, null],
     ],
     'paymentLinks.cancel' => [
         fn (FakeTransport $t) => (new HttpPaymentLinkRepository($t))->cancel('pl_1'),
-        ['POST', '/payment-links/pl_1/cancel', [], [], null],
+        ['POST', '/payment-links/pl_1/cancel', [], null, null],
     ],
     'payouts.create' => [
         fn (FakeTransport $t) => (new HttpPayoutRepository($t))->create($payout, $key),
@@ -102,6 +102,22 @@ foreach ($cases as $name => [$call, $expected]) {
         expect(sent($transport->last()))->toBe($expected);
     });
 }
+
+foreach (['close', 'reopen', 'cancel'] as $action) {
+    test("paymentLinks.{$action} is a bodiless action", function () use ($action): void {
+        $transport = new FakeTransport;
+        (new HttpPaymentLinkRepository($transport))->{$action}('pl_1');
+
+        expect($transport->last()->bodiless)->toBeTrue();
+    });
+}
+
+test('payouts.cancel is not a bodiless action', function (): void {
+    $transport = new FakeTransport;
+    (new HttpPayoutRepository($transport))->cancel('po_1');
+
+    expect($transport->last()->bodiless)->toBeFalse();
+});
 
 test('a repository returns the transport result', function (): void {
     expect((new HttpPaymentRepository(new FakeTransport))->retrieve('pay_1')['id'])->toBe('obj_1');
