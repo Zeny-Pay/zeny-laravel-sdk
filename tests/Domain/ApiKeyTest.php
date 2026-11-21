@@ -28,12 +28,18 @@ $printers = [
     },
     'print_r' => fn (ApiKey $key): string => print_r($key, true),
     'json_encode' => fn (ApiKey $key): string => (string) json_encode($key),
+    'var_export' => fn (ApiKey $key): string => var_export($key, true),
+    'Symfony VarDumper' => fn (ApiKey $key): string => cliDump($key),
 ];
 foreach ($printers as $name => $print) {
     test("{$name} never prints the secret", function () use ($print) {
         expect($print(ApiKey::parse('sk_test_SECRETPART')))->not->toContain('SECRETPART');
     });
 }
+
+test('a clone still reads the secret', function () {
+    expect((clone ApiKey::parse('sk_test_abc'))->value())->toBe('sk_test_abc');
+});
 
 test('the string form names the mode', function () {
     expect((string) ApiKey::parse('sk_live_SECRET'))->toBe('ApiKey(sk_live_***)');
@@ -49,6 +55,7 @@ $rejected = [
     'prefix only' => 'sk_live_',
     'space' => 'sk_test_ab cd',
     'newline' => "sk_test_SECRET\nX",
+    'trailing newline' => "sk_test_SECRET\n",
     'non-ascii' => "sk_test_\u{e9}",
     'null' => null,
     'number' => 5,

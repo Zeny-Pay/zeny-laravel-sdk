@@ -9,7 +9,7 @@ use InvalidArgumentException;
 /** A caller-chosen Idempotency-Key: 1-255 printable ASCII characters. */
 final class IdempotencyKey
 {
-    private const PATTERN = '/^[\x20-\x7E]{1,255}$/';
+    private const PATTERN = '/^[\x20-\x7E]{1,255}\z/';
 
     private function __construct(public readonly string $value) {}
 

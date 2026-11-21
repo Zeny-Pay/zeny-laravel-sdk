@@ -20,7 +20,7 @@ test('accepts 255 characters', function () {
     expect(strlen(IdempotencyKey::parse(str_repeat('a', 255))->value))->toBe(255);
 });
 
-$rejected = ['empty' => '', '256 chars' => str_repeat('a', 256), 'newline' => "a\nb", 'non-ascii' => "\u{e9}", 'null' => null, 'number' => 5];
+$rejected = ['empty' => '', '256 chars' => str_repeat('a', 256), 'newline' => "a\nb", 'trailing newline' => "a\n", 'non-ascii' => "\u{e9}", 'null' => null, 'number' => 5];
 foreach ($rejected as $name => $raw) {
     test("rejects {$name}", function () use ($raw) {
         expect(fn () => IdempotencyKey::parse($raw))

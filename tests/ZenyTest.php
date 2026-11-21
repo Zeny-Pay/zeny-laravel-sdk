@@ -40,6 +40,14 @@ test('print_r of a client prints no key', function (): void {
     expect(print_r(new Zeny(ZENY_TEST_KEY), true))->not->toContain('sk_');
 });
 
+test('Symfony VarDumper of a client never prints the secret', function (): void {
+    expect(cliDump(new Zeny(ZENY_TEST_KEY)))->not->toContain('zenyclientmarker42');
+});
+
+test('var_export of a client never prints the secret', function (): void {
+    expect(var_export(new Zeny(ZENY_TEST_KEY), true))->not->toContain('zenyclientmarker42');
+});
+
 test('a malformed key throws InvalidArgumentException', function (): void {
     expect(fn () => new Zeny(null))->toThrow(InvalidArgumentException::class);
 });

@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace Zeny\Domain;
 
 use InvalidArgumentException;
+use LogicException;
+use stdClass;
+use WeakMap;
 
 /**
- * A validated secret key. The raw text lives in a private property and every
- * way of printing the object (string cast, var_dump, print_r, json_encode)
- * shows a redacted form, so a key never lands in a log by accident.
+ * A validated secret key. The raw text is not a property of the object: it
+ * sits in a static WeakMap keyed by an empty handle, so nothing that walks an
+ * object's properties (var_dump, print_r, var_export, Symfony VarDumper and
+ * so dd(), Telescope or Ignition) can reach it. Printing the object shows a
+ * redacted form instead.
  */
 final class ApiKey implements \JsonSerializable
 {
@@ -17,16 +22,25 @@ final class ApiKey implements \JsonSerializable
 
     private const TEST_PREFIX = 'sk_test_';
 
-    // Printable ASCII only: a control character would end up in a header
-    // error message that quotes the key.
-    private const PATTERN = '/^sk_(live|test)_[\x21-\x7E]+$/';
+    // Printable ASCII only, and `\z` rather than `$`, which also accepts a
+    // trailing newline: a control character would end up in a header error
+    // message that quotes the key.
+    private const PATTERN = '/^sk_(live|test)_[\x21-\x7E]+\z/';
+
+    /** @var WeakMap<stdClass, string>|null handle => secret; an entry goes when its handle does */
+    private static ?WeakMap $secrets = null;
 
     /** Environment chosen by the key prefix: `live` or `test`. */
     public readonly string $mode;
 
-    private function __construct(#[\SensitiveParameter] private readonly string $secret)
+    /** Shared by clones, so a cloned key still reads its secret. */
+    private readonly stdClass $handle;
+
+    private function __construct(#[\SensitiveParameter] string $secret)
     {
         $this->mode = str_starts_with($secret, self::LIVE_PREFIX) ? 'live' : 'test';
+        $this->handle = new stdClass;
+        self::secrets()[$this->handle] = $secret;
     }
 
     /**
@@ -47,7 +61,7 @@ final class ApiKey implements \JsonSerializable
     /** The secret itself. Read it only where the bearer header is built. */
     public function value(): string
     {
-        return $this->secret;
+        return self::secrets()[$this->handle] ?? throw new LogicException('The API key secret is missing.');
     }
 
     public function __toString(): string
@@ -69,6 +83,12 @@ final class ApiKey implements \JsonSerializable
     /** A serialised key would sit in a cache or queue in clear text, so refuse. */
     public function __serialize(): never
     {
-        throw new \LogicException('An API key cannot be serialized.');
+        throw new LogicException('An API key cannot be serialized.');
+    }
+
+    /** @return WeakMap<stdClass, string> */
+    private static function secrets(): WeakMap
+    {
+        return self::$secrets ??= new WeakMap;
     }
 }
