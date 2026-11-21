@@ -30,7 +30,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Zeny\\Tests\\": "tests/"
+            "Zeny\\Tests\\": "tests/",
+            "Zeny\\Scripts\\": "scripts/lib/"
         }
     },
     "extra": {

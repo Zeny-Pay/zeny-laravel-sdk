@@ -17,7 +17,7 @@ const DOMAIN_FORBIDDEN_CALLS = [
     'time', 'microtime', 'hrtime', 'date', 'usleep', 'sleep',
 ];
 
-foreach (['Domain', 'Infrastructure'] as $layer) {
+foreach (['Domain', 'Generated', 'Infrastructure'] as $layer) {
     test("the {$layer} layer holds at least one class", function () use ($layer): void {
         expect(SourceScanner::files($layer))->not->toBeEmpty();
     });

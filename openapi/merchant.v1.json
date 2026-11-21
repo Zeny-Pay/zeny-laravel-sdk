@@ -1,0 +1,3813 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Merchant API",
+    "version": "v1",
+    "description": "Generated from the proto contract (`merchant.*.v1`) by protoc-gen-fiber. Never edit it by hand.\n\n- JSON is camelCase. Every documented key of a response is always present: an empty object or time is `null`, a list `[]`, a string `\"\"`.\n- Ids carry a prefix of their object kind (`pay_…`). Amounts are `Money` objects: a decimal string `value` and its `currency`.\n- A field with a list of values may gain new values in v1: a client must accept a value it does not know.\n- A request field the route does not declare is refused (`400 unknown_field`); a body that breaks a declared rule is refused with one `details` item per broken rule.\n- Every error has one shape (`Error`), with a `type` per HTTP status and a stable `code`."
+  },
+  "tags": [
+    {
+      "name": "TestFundsService",
+      "description": "Sandbox test funds: money credited straight to your project's available\nbalance so you can try payouts without a pay-in first. The route exists\nonly in Sandbox, never Production: anywhere else it answers\n`404 route_not_found`.\n\nAuthenticate with `Authorization: Bearer sk_test_…`."
+    },
+    {
+      "name": "DisputeService",
+      "description": "Disputes are a payer's challenges of your payments, and reversals a\npayment provider made without one. Providers report them and their\noutcomes: you read them here, or learn of them from the\n`dispute.opened` and `dispute.closed` webhooks. An open dispute holds\nthe disputed money from your balance until it is decided.\n\nAuthenticate with the secret API key of one project\n(`Authorization: Bearer sk_live_…` or `sk_test_…`). The key's project is\nthe only one you read: no request field names a merchant or a project,\nand another project's dispute answers `404 dispute_not_found`."
+    },
+    {
+      "name": "PaymentService",
+      "description": "Payments collect money from a payer. Create a payment for the amount you\nwant, then start an attempt with the instrument the payer chose (a bank's\nvirtual account, QRIS, an e-wallet): the attempt's `nextAction` tells the\npayer how to pay. A payment can take several attempts until one succeeds\nor the payment expires. Learn the outcome from the `payment.paid` and\n`payment.expired` webhooks, or read the payment again.\n\nAuthenticate with `Authorization: Bearer sk_live_…` (or `sk_test_…`).\nEvery create takes an `Idempotency-Key`: send the same key again after a\ntimeout or a 5xx and you get the first answer, with `Idempotent-Replayed:\ntrue`, and nothing is created twice."
+    },
+    {
+      "name": "PayoutService",
+      "description": "Payouts send money from your project's available balance to a saved\nbeneficiary's bank account or e-wallet. A payout you request reserves its\nmoney at once and waits in `pending_approval` until the platform's team\napproves it; it is then `processing` until the\nprovider reports it `paid` or `failed`. Learn the outcome from the\n`payout.paid`, `payout.failed`, `payout.rejected` and `payout.canceled`\nwebhooks, or read the payout again.\n\nAuthenticate with `Authorization: Bearer sk_live_…` (or `sk_test_…`).\nEvery POST takes an `Idempotency-Key`: send the same key again after a\ntimeout or a 5xx and you get the first answer's status with the payout as\nit is now, with `Idempotent-Replayed: true`, and nothing happens twice."
+    }
+  ],
+  "paths": {
+    "/api/merchant/v1/disputes": {
+      "get": {
+        "operationId": "DisputeService_ListDisputes",
+        "tags": [
+          "DisputeService"
+        ],
+        "summary": "List disputes",
+        "description": "Lists your project's disputes, newest opened first, a page at a time.\nA cursor is valid only with the status that issued it. A list never\ncounts.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": ""
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "won",
+                    "lost"
+                  ]
+                }
+              ]
+            },
+            "description": "Only disputes in this status: open, won or lost. Omit it for every\nstatus."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "description": "Page size, at most 100; 0 or omitted means 20."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "The `nextCursor` of the previous page; omit it for the first page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the list.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.ListDisputesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 600,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/disputes/{id}": {
+      "get": {
+        "operationId": "DisputeService_GetDispute",
+        "tags": [
+          "DisputeService"
+        ],
+        "summary": "Get dispute",
+        "description": "Retrieves one dispute of your project. An id your project does not\nhold answers `404 dispute_not_found`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-f-]{36}$"
+            },
+            "description": "The dispute's id (`dsp_…`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.Dispute"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 1200,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payments": {
+      "post": {
+        "operationId": "PaymentService_CreatePayment",
+        "tags": [
+          "PaymentService"
+        ],
+        "summary": "Create payment",
+        "description": "Creates a payment the payer can then pay. Nothing is charged yet: start\nan attempt next. The `reference` is your own order id and is unique in\nthe project; reusing it answers `409 duplicate_reference`, with the\nexisting payment's id in `error.details[0].id`.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A key you choose, unique per request you mean (FIN-001): 1 to 255 printable ASCII characters, kept at least 24 hours. A retry with the same key and body answers with the first status and the object as it stands now, and nothing is done twice; the same key with another body is `422 idempotency_key_reused`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[\\x20-\\x7E]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payment.v1.CreatePaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.Payment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Idempotency"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 6000,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payments/{id}": {
+      "get": {
+        "operationId": "PaymentService_GetPayment",
+        "tags": [
+          "PaymentService"
+        ],
+        "summary": "Get payment",
+        "description": "Retrieves a payment of your project, with its latest attempt.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^pay_[0-9a-f-]{36}$"
+            },
+            "description": "The payment's id (`pay_…`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.Payment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 6000,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payments/{id}/attempts": {
+      "post": {
+        "operationId": "PaymentService_CreatePaymentAttempt",
+        "tags": [
+          "PaymentService"
+        ],
+        "summary": "Create payment attempt",
+        "description": "Starts paying a pending payment with an instrument and returns the new\nattempt. Show the payer its `nextAction`. When the payment provider\nrefuses the attempt, the answer is still `201`, with `status: \"failed\"`\nand a `failure`: it is not an error, so do not retry the same request;\nstart a new attempt (with a new key), perhaps with another instrument.\nAn attempt whose outcome is not known yet is `processing`. A payment\nwith an attempt still open answers `409 attempt_in_progress`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^pay_[0-9a-f-]{36}$"
+            },
+            "description": "The payment's id (`pay_…`)."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A key you choose, unique per request you mean (FIN-001): 1 to 255 printable ASCII characters, kept at least 24 hours. A retry with the same key and body answers with the first status and the object as it stands now, and nothing is done twice; the same key with another body is `422 idempotency_key_reused`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[\\x20-\\x7E]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "CreatePaymentAttemptRequest is how the payer chose to pay.",
+                "properties": {
+                  "instrument": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9][A-Z0-9_-]{0,39}$",
+                    "minLength": 1,
+                    "description": "The instrument's code: a bank for a virtual account (\"BCA\"), \"QRIS\",\nor an e-wallet (\"GOPAY\"). Upper case letters, digits, `_` and `-`."
+                  },
+                  "returnUrl": {
+                    "anyOf": [
+                      {
+                        "const": ""
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "pattern": "^https://",
+                        "format": "uri"
+                      }
+                    ],
+                    "description": "Where a redirect sends the payer back to when they finish: an absolute\n`https://` URL, at most 2048 characters. Omit it to let the provider\ndecide."
+                  }
+                },
+                "required": [
+                  "instrument"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payment.v1.PaymentAttempt"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Idempotency"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 6000,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payouts": {
+      "post": {
+        "operationId": "PayoutService_CreatePayout",
+        "tags": [
+          "PayoutService"
+        ],
+        "summary": "Create payout",
+        "description": "Requests a payout and reserves its money (`debit`) from the project's\navailable balance. The `reference` is your own id and is unique in the\nproject; reusing it answers `409 duplicate_reference`, with the existing\npayout's id in `error.details[0].id`. The beneficiary must exist\n(`404 beneficiary_not_found`), not be deleted (`409\nbeneficiary_deleted`) and have a passing name check\n(`409 name_check_required`, `409 name_check_failed`; `409\nname_check_pending` while staff verify the account by hand). The balance must\ncover the debit (`409 insufficient_balance`), and the amount the fee\nwhen the beneficiary bears it (`400 amount_below_fee`). A merchant that\ncannot send money now is `403 merchant_not_live`, an archived project\n`403 project_archived`, and a merchant that owes the platform\n`409 outstanding_debt`.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A key you choose, unique per request you mean (FIN-001): 1 to 255 printable ASCII characters, kept at least 24 hours. A retry with the same key and body answers with the first status and the object as it stands now, and nothing is done twice; the same key with another body is `422 idempotency_key_reused`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[\\x20-\\x7E]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payout.v1.CreatePayoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payout.v1.Payout"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Idempotency"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 3000,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payouts/{id}": {
+      "get": {
+        "operationId": "PayoutService_GetPayout",
+        "tags": [
+          "PayoutService"
+        ],
+        "summary": "Get payout",
+        "description": "Retrieves a payout of your project.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^po_[0-9a-f-]{36}$"
+            },
+            "description": "The payout's id (`po_…`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payout.v1.Payout"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 6000,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/payouts/{id}/cancel": {
+      "post": {
+        "operationId": "PayoutService_CancelPayout",
+        "tags": [
+          "PayoutService"
+        ],
+        "summary": "Cancel payout",
+        "description": "Cancels a payout still waiting for approval and returns it, `canceled`:\nits debit goes back to the available balance. A payout that left\n`pending_approval` cannot be canceled (`409 invalid_state_transition`),\nand neither can one canceled already under another key; a retry with\nthe same key answers the canceled payout.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^po_[0-9a-f-]{36}$"
+            },
+            "description": "The payout's id (`po_…`)."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A key you choose, unique per request you mean (FIN-001): 1 to 255 printable ASCII characters, kept at least 24 hours. A retry with the same key and body answers with the first status and the object as it stands now, and nothing is done twice; the same key with another body is `422 idempotency_key_reused`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[\\x20-\\x7E]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "CancelPayoutRequest names the payout to cancel.",
+                "properties": {},
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.payout.v1.Payout"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Idempotency"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 600,
+          "windowSeconds": 60
+        }
+      }
+    },
+    "/api/merchant/v1/test-funds": {
+      "post": {
+        "operationId": "TestFundsService_CreateTestFunds",
+        "tags": [
+          "TestFundsService"
+        ],
+        "summary": "Create test funds",
+        "description": "Credits test funds to the project's available balance and answers\nthem. The amount is whole rupiah in IDR, at least Rp 1.000 and at most\nRp 100.000.000 per request, and at most Rp 1.000.000.000 per project a\nday (Asia/Jakarta). Above either limit it is\n`409 test_funds_limit_exceeded` on `amount.value`; when Sandbox has no\npayout account to hold the money it is `409 test_funds_unavailable`.\nThe balance and the statement (a \"Test funds\" line) show the money at\nonce. Send an `Idempotency-Key`: a retry with the same key and body\nanswers the same test funds with `Idempotent-Replayed: true`, and\nnothing is credited twice.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "A key you choose, unique per request you mean (FIN-001): 1 to 255 printable ASCII characters, kept at least 24 hours. A retry with the same key and body answers with the first status and the object as it stands now, and nothing is done twice; the same key with another body is `422 idempotency_key_reused`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[\\x20-\\x7E]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.balance.v1.CreateTestFundsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created resource.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/merchant.balance.v1.TestFunds"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Permission"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Idempotency"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-auth": {
+          "principalKinds": [
+            "api_key"
+          ],
+          "scope": "project"
+        },
+        "x-rate-limit": {
+          "max": 600,
+          "windowSeconds": 60
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "dispute.closed": {
+      "post": {
+        "summary": "dispute.closed",
+        "description": "DisputeEvent is the body of a webhook about a dispute.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `dispute.closed`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "dispute.closed"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payment.v1.DisputeEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "dispute.opened": {
+      "post": {
+        "summary": "dispute.opened",
+        "description": "DisputeEvent is the body of a webhook about a dispute.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `dispute.opened`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "dispute.opened"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payment.v1.DisputeEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "payment.expired": {
+      "post": {
+        "summary": "payment.expired",
+        "description": "PaymentEvent is the body of a webhook about a payment.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `payment.expired`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "payment.expired"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payment.v1.PaymentEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "payment.paid": {
+      "post": {
+        "summary": "payment.paid",
+        "description": "PaymentEvent is the body of a webhook about a payment.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `payment.paid`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "payment.paid"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payment.v1.PaymentEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "payment_attempt.failed": {
+      "post": {
+        "summary": "payment_attempt.failed",
+        "description": "PaymentAttemptEvent is the body of a webhook about one attempt at paying a payment:\n`payment_attempt.failed` means the payment can still be paid by another\nattempt.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `payment_attempt.failed`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "payment_attempt.failed"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payment.v1.PaymentAttemptEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "payout.canceled": {
+      "post": {
+        "summary": "payout.canceled",
+        "description": "PayoutEvent is the body of a webhook about a payout.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `payout.canceled`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "payout.canceled"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payout.v1.PayoutEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "payout.failed": {
+      "post": {
+        "summary": "payout.failed",
+        "description": "PayoutEvent is the body of a webhook about a payout.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `payout.failed`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "payout.failed"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payout.v1.PayoutEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "payout.paid": {
+      "post": {
+        "summary": "payout.paid",
+        "description": "PayoutEvent is the body of a webhook about a payout.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `payout.paid`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "payout.paid"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payout.v1.PayoutEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    },
+    "payout.rejected": {
+      "post": {
+        "summary": "payout.rejected",
+        "description": "PayoutEvent is the body of a webhook about a payout.\nIt arrives as a signed POST to your endpoint.\n\nThe body's `type` and the `Webhook-Event` header are `payout.rejected`. Verify `Webhook-Signature` over the raw body before you trust it, store the event under its `id`, then answer any `2xx`.",
+        "parameters": [
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "`sha256=` and the lowercase hex HMAC-SHA256 of `Webhook-Timestamp`, a period and the raw body, keyed with the whole endpoint secret (`whsec_…` included).",
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256=[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "When this try was signed, in Unix seconds: reject one more than five minutes old.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type, the body's `type`.",
+            "schema": {
+              "type": "string",
+              "const": "payout.rejected"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "The event's id, the body's `id` (`evt_…`): the same on every try.",
+            "schema": {
+              "type": "string",
+              "pattern": "^evt_"
+            }
+          },
+          {
+            "name": "Webhook-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "This delivery's id: one per endpoint the event goes to. Never deduplicate on it; use `Webhook-Id`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/merchant.payout.v1.PayoutEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Received. Answer once the event is stored; without a `2xx` it is tried again, up to 12 times over 10 to 20 hours."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "description": "The error of every non-2xx answer, under the key `error`.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The class of the error, one per HTTP status."
+          },
+          "code": {
+            "type": "string",
+            "description": "A stable snake_case code to branch on (`unknown_field`, `too_long`, `payment_not_found`). New codes may be added in v1."
+          },
+          "message": {
+            "type": "string",
+            "description": "English, safe to show; never branch on it."
+          },
+          "param": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The request field the error is about, as a JSON path (`amount.value`, `items[1].name`, `metadata.*`)."
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "description": "One item per broken rule of a refused request; `[]` otherwise."
+          },
+          "requestId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The request's X-Request-ID."
+          }
+        },
+        "required": [
+          "type",
+          "code",
+          "message",
+          "param",
+          "details",
+          "requestId"
+        ]
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "properties": {
+          "param": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The field the item is about."
+          },
+          "code": {
+            "type": "string",
+            "description": "The rule's family: `field_required`, `too_short`, `too_long`, `invalid_format`, `value_not_allowed`, `out_of_range`, `too_few_items`, `too_many_items`, `duplicate_items` or `invalid_value`; or a domain code (`duplicate_reference`)."
+          },
+          "message": {
+            "type": "string"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The public id of an existing object the item points at (`duplicate_reference`)."
+          }
+        },
+        "required": [
+          "param",
+          "code",
+          "message",
+          "id"
+        ]
+      },
+      "merchant.balance.v1.CreateTestFundsRequest": {
+        "type": "object",
+        "description": "CreateTestFundsRequest is the amount to credit.",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/type.v1.MoneyInput",
+            "description": "The amount to credit, whole rupiah in IDR."
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "additionalProperties": false
+      },
+      "merchant.balance.v1.TestFunds": {
+        "type": "object",
+        "description": "TestFunds is one Sandbox test funds credit.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The test funds' id (`tfg_…`)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"test_funds\"."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The amount credited."
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the money was credited."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "amount",
+          "createdAt"
+        ]
+      },
+      "merchant.payment.v1.CardMethod": {
+        "type": "object",
+        "description": "CardMethod is a card paid on the provider's page. It has no detail yet;\nfields arrive by addition.",
+        "properties": {}
+      },
+      "merchant.payment.v1.CreatePaymentRequest": {
+        "type": "object",
+        "description": "CreatePaymentRequest is the payment you ask the payer for.",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "maxLength": 100,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$",
+            "minLength": 1,
+            "description": "Your own id for the order, unique in the project: printable text, at\nmost 100 characters."
+          },
+          "amount": {
+            "$ref": "#/components/schemas/type.v1.MoneyInput",
+            "description": "What the payer pays: a positive amount with at most the currency's\ndecimals (IDR: 2)."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Shown to the payer on the hosted page and passed to the payment\nprovider; at most 500 characters."
+          },
+          "payer": {
+            "$ref": "#/components/schemas/merchant.payment.v1.PayerInput",
+            "description": "Who pays, when you know it. Some instruments need the payer's name or\ncontact; it is passed to the payment provider and never shown to others."
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "maxProperties": 20,
+            "description": "Your own key-value labels, returned as sent: at most 20 keys, a key of\n1 to 40 characters and a value of at most 500. Never put personal data\nhere."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the payment stops taking attempts: between 5 minutes and 30 days\nfrom now. Omit it for 24 hours."
+          }
+        },
+        "required": [
+          "reference",
+          "amount"
+        ],
+        "additionalProperties": false
+      },
+      "merchant.payment.v1.Dispute": {
+        "type": "object",
+        "description": "Dispute is a payer's dispute of one of your payments, or a reversal the\npayment provider made without one. Each field a payment's\n`disputes[]` summary carries has the same name and value here. Every\namount is in the payment's currency.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The dispute's id (`dsp_…`)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"dispute\"."
+          },
+          "payment": {
+            "type": "string",
+            "description": "The disputed payment's id (`pay_…`)."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "dispute",
+                  "reversal"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "dispute: the payer disputed the payment. reversal: the provider took\nthe money back without a dispute. Accept a value you do not know yet."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "won",
+                  "lost"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "open: under review, the disputed money is held (`frozenAmount`). won:\ndecided for you, the hold is released. lost: decided for the payer,\nthe amount was taken from your balance. Accept a value you do not know\nyet."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What is disputed, in the payment's currency: the same figure as the\npayment's `disputes[].amount`."
+          },
+          "frozenAmount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the dispute holds from your balance now; `0.00` once decided, or\nwhile the payment has not settled (the dispute then postpones its\nsettlement instead)."
+          },
+          "shortfallAmount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What your balance could not cover yet when the dispute opened, less\nwhat later settlements covered; `0.00` when covered or decided."
+          },
+          "openedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the dispute opened."
+          },
+          "resolvedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When it was decided; `null` while open."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "payment",
+          "type",
+          "status",
+          "amount",
+          "frozenAmount",
+          "shortfallAmount",
+          "openedAt",
+          "resolvedAt"
+        ]
+      },
+      "merchant.payment.v1.DisputeEvent": {
+        "type": "object",
+        "description": "DisputeEvent is the body of a webhook about a dispute.\nIt arrives as a signed POST to your endpoint.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The event's id (`evt_…`), also sent as `Webhook-Id`: the same on every\ntry. Store events under it, once: one can arrive twice."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"event\"."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "dispute.opened",
+                  "dispute.closed"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "What happened, as `Webhook-Event` names it."
+          },
+          "apiVersion": {
+            "type": "string",
+            "description": "The API version `data.object` is written in (\"v1\")."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the event was written."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "test"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "live from the production API (`sk_live_` keys), test from the sandbox\n(`sk_test_` keys). Accept a value you do not know yet."
+          },
+          "resourceVersion": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Orders the events of one object: drop an event whose resourceVersion is\nolder than the one you hold. A JSON number, not a string."
+          },
+          "data": {
+            "$ref": "#/components/schemas/merchant.payment.v1.DisputeEvent.Data",
+            "description": "What the event is about."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "type",
+          "apiVersion",
+          "createdAt",
+          "mode",
+          "resourceVersion",
+          "data"
+        ]
+      },
+      "merchant.payment.v1.DisputeEvent.Data": {
+        "type": "object",
+        "description": "Data holds the object the event is about.",
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/merchant.payment.v1.Dispute",
+            "description": "The dispute as `GET /disputes/{id}` answered when the event was written."
+          }
+        },
+        "required": [
+          "object"
+        ]
+      },
+      "merchant.payment.v1.DisputeSummary": {
+        "type": "object",
+        "description": "DisputeSummary is a dispute of the payment, in short.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The dispute's id (`dsp_…`)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"dispute\"."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "dispute",
+                  "reversal"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "dispute: the payer disputed the payment. reversal: the provider took\nthe money back without a dispute."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "won",
+                  "lost"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "open: under review, the disputed money is held. won: decided for you,\nthe hold is released. lost: decided for the payer, the amount was\ntaken from your balance."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What is disputed, in the payment's currency."
+          },
+          "openedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the dispute opened."
+          },
+          "resolvedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When it was decided; `null` while open."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "type",
+          "status",
+          "amount",
+          "openedAt",
+          "resolvedAt"
+        ]
+      },
+      "merchant.payment.v1.EwalletMethod": {
+        "type": "object",
+        "description": "EwalletMethod is an e-wallet.",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "description": "The e-wallet's code (\"GOPAY\")."
+          }
+        },
+        "required": [
+          "provider"
+        ]
+      },
+      "merchant.payment.v1.Fee": {
+        "type": "object",
+        "description": "Fee is one line the capture took from the payment's amount.",
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "fee",
+                  "tax",
+                  "conversion",
+                  "cost"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "fee: the platform's fee. tax: the tax on that fee. conversion: the estimated cost\nof converting a payment charged in another currency. cost: a provider\ncost passed on to you."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The line's amount, in the payment's currency."
+          }
+        },
+        "required": [
+          "type",
+          "amount"
+        ]
+      },
+      "merchant.payment.v1.ListDisputesResponse": {
+        "type": "object",
+        "description": "ListDisputesResponse is a page of disputes.",
+        "properties": {
+          "object": {
+            "type": "string",
+            "description": "Always \"list\"."
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/merchant.payment.v1.Dispute"
+            },
+            "description": "The page, newest opened first."
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether another page follows."
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "The cursor of the next page; \"\" on the last page."
+          }
+        },
+        "required": [
+          "object",
+          "data",
+          "hasMore",
+          "nextCursor"
+        ]
+      },
+      "merchant.payment.v1.Payer": {
+        "type": "object",
+        "description": "Payer is who pays a payment. Every field is optional.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "The payer's name, at most 255 characters."
+          },
+          "email": {
+            "anyOf": [
+              {
+                "const": ""
+              },
+              {
+                "type": "string",
+                "maxLength": 254,
+                "format": "email"
+              }
+            ],
+            "description": "The payer's email address."
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "const": ""
+              },
+              {
+                "type": "string",
+                "pattern": "^[+]?[0-9]{6,20}$"
+              }
+            ],
+            "description": "The payer's phone number: 6 to 20 digits with an optional leading `+`."
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "phone"
+        ]
+      },
+      "merchant.payment.v1.PayerInput": {
+        "type": "object",
+        "description": "Payer is who pays a payment. Every field is optional.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "The payer's name, at most 255 characters."
+          },
+          "email": {
+            "anyOf": [
+              {
+                "const": ""
+              },
+              {
+                "type": "string",
+                "maxLength": 254,
+                "format": "email"
+              }
+            ],
+            "description": "The payer's email address."
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "const": ""
+              },
+              {
+                "type": "string",
+                "pattern": "^[+]?[0-9]{6,20}$"
+              }
+            ],
+            "description": "The payer's phone number: 6 to 20 digits with an optional leading `+`."
+          }
+        },
+        "additionalProperties": false
+      },
+      "merchant.payment.v1.Payment": {
+        "type": "object",
+        "description": "Payment is money you asked a payer for. Its `status` is `pending` until an\nattempt captures it (`paid`) or it expires unpaid (`expired`). A payment\nthat expired can still become `paid` when the provider reports a capture\nlate: money that arrived is never ignored.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The payment's id (`pay_…`)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"payment\"."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Your own id for the order, as you sent it."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What you asked the payer to pay."
+          },
+          "amountReceived": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the payment actually collected: `0.00` until it is paid, then the\namount."
+          },
+          "amountRefunded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What was refunded so far."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "paid",
+                  "expired"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "pending, paid or expired. Accept a value you do not know yet."
+          },
+          "captureMethod": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "automatic"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "automatic: the payment is captured as soon as the payer pays."
+          },
+          "description": {
+            "type": "string",
+            "description": "As you sent it; \"\" when none."
+          },
+          "payer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.Payer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who pays, as you sent it (or as the payer typed it on a hosted page);\n`null` when nothing is known."
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Your labels, as sent."
+          },
+          "latestAttempt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.PaymentAttempt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The newest attempt at paying; `null` before the first."
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/merchant.payment.v1.Fee"
+            },
+            "description": "What the capture charged you, one line per kind; `[]` until the\npayment is paid. A fee the payer bears is not a line."
+          },
+          "net": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What you receive: the amount less every fee line; `null` until the\npayment is paid."
+          },
+          "settlement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.Settlement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the money becomes your available balance; `null` until the payment\nis paid."
+          },
+          "disputes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/merchant.payment.v1.DisputeSummary"
+            },
+            "description": "The payment's disputes and reversals, oldest first; `[]` when none."
+          },
+          "paymentLink": {
+            "type": "string",
+            "description": "The payment link (`pl_…`) the payer paid through; \"\" for a payment you\ncreated with this API."
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the payment was created."
+          },
+          "paidAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When it was paid; `null` until then."
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When it stops taking attempts."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "reference",
+          "amount",
+          "amountReceived",
+          "amountRefunded",
+          "status",
+          "captureMethod",
+          "description",
+          "payer",
+          "metadata",
+          "latestAttempt",
+          "fees",
+          "net",
+          "settlement",
+          "disputes",
+          "paymentLink",
+          "createdAt",
+          "paidAt",
+          "expiresAt"
+        ]
+      },
+      "merchant.payment.v1.PaymentAttempt": {
+        "type": "object",
+        "description": "PaymentAttempt is one try at paying a payment with one instrument.\nrequires_action: the payer must act (see `nextAction`). processing: the\noutcome is not known yet; wait for the webhook or read it again, never\nstart another attempt meanwhile. succeeded: the payer paid. failed: it\ndid not go through (see `failure`); the payment can take a new attempt.\nexpired: the payer did not pay in time.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The attempt's id (`att_…`)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"payment_attempt\"."
+          },
+          "payment": {
+            "type": "string",
+            "description": "The payment's id (`pay_…`)."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "requires_action",
+                  "processing",
+                  "succeeded",
+                  "failed",
+                  "expired"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "requires_action, processing, succeeded, failed or expired. Accept a\nvalue you do not know yet."
+          },
+          "paymentMethod": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the payer pays."
+          },
+          "charge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the payer is charged: the payment's amount, plus the fee when the\npayer bears it, in the currency the provider charges."
+          },
+          "nextAction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.NextAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the payer does next; `null` unless the status is requires_action."
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Failure"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the attempt failed; `null` unless the status is failed."
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the attempt was created."
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the payer's instructions stop working; `null` until the provider\ngave them."
+          },
+          "uniqueCode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The unique code added to `charge` so the payment can be told apart by\nits amount, on a payment method whose provider reports no reference;\n`null` on every other attempt. It is already in `charge`, is paid by\nthe payer and kept by the platform, and is never taken from the payment's\namount: it is not a fee and does not change `net`."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "payment",
+          "status",
+          "paymentMethod",
+          "charge",
+          "nextAction",
+          "failure",
+          "createdAt",
+          "expiresAt",
+          "uniqueCode"
+        ]
+      },
+      "merchant.payment.v1.PaymentAttemptEvent": {
+        "type": "object",
+        "description": "PaymentAttemptEvent is the body of a webhook about one attempt at paying a payment:\n`payment_attempt.failed` means the payment can still be paid by another\nattempt.\nIt arrives as a signed POST to your endpoint.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The event's id (`evt_…`), also sent as `Webhook-Id`: the same on every\ntry. Store events under it, once: one can arrive twice."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"event\"."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "payment_attempt.failed"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "What happened, as `Webhook-Event` names it."
+          },
+          "apiVersion": {
+            "type": "string",
+            "description": "The API version `data.object` is written in (\"v1\")."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the event was written."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "test"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "live from the production API (`sk_live_` keys), test from the sandbox\n(`sk_test_` keys). Accept a value you do not know yet."
+          },
+          "resourceVersion": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Orders the events of one object: drop an event whose resourceVersion is\nolder than the one you hold. A JSON number, not a string."
+          },
+          "data": {
+            "$ref": "#/components/schemas/merchant.payment.v1.PaymentAttemptEvent.Data",
+            "description": "What the event is about."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "type",
+          "apiVersion",
+          "createdAt",
+          "mode",
+          "resourceVersion",
+          "data"
+        ]
+      },
+      "merchant.payment.v1.PaymentAttemptEvent.Data": {
+        "type": "object",
+        "description": "Data holds the object the event is about.",
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/merchant.payment.v1.PaymentAttempt",
+            "description": "The attempt as `POST /payments/{id}/attempts` answers it, when the\nevent was written."
+          }
+        },
+        "required": [
+          "object"
+        ]
+      },
+      "merchant.payment.v1.PaymentEvent": {
+        "type": "object",
+        "description": "PaymentEvent is the body of a webhook about a payment.\nIt arrives as a signed POST to your endpoint.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The event's id (`evt_…`), also sent as `Webhook-Id`: the same on every\ntry. Store events under it, once: one can arrive twice."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"event\"."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "payment.paid",
+                  "payment.expired"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "What happened, as `Webhook-Event` names it."
+          },
+          "apiVersion": {
+            "type": "string",
+            "description": "The API version `data.object` is written in (\"v1\")."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the event was written."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "test"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "live from the production API (`sk_live_` keys), test from the sandbox\n(`sk_test_` keys). Accept a value you do not know yet."
+          },
+          "resourceVersion": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Orders the events of one object: drop an event whose resourceVersion is\nolder than the one you hold. A JSON number, not a string."
+          },
+          "data": {
+            "$ref": "#/components/schemas/merchant.payment.v1.PaymentEvent.Data",
+            "description": "What the event is about."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "type",
+          "apiVersion",
+          "createdAt",
+          "mode",
+          "resourceVersion",
+          "data"
+        ]
+      },
+      "merchant.payment.v1.PaymentEvent.Data": {
+        "type": "object",
+        "description": "Data holds the object the event is about.",
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/merchant.payment.v1.Payment",
+            "description": "The payment as `GET /payments/{id}` answered when the event was written."
+          }
+        },
+        "required": [
+          "object"
+        ]
+      },
+      "merchant.payment.v1.PaymentMethod": {
+        "type": "object",
+        "description": "PaymentMethod is how an attempt is paid. `type` names the method;\nexactly the sub-object of that name is set when it has one, every other\none is `null`.",
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "va",
+                  "qris",
+                  "ewallet",
+                  "card",
+                  "bank_transfer",
+                  "crypto",
+                  "paypal"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "va, qris, ewallet, card, bank_transfer, crypto or paypal. Accept a value\nyou do not know yet."
+          },
+          "instrument": {
+            "type": "string",
+            "description": "The instrument's code, as you sent it (\"BCA\", \"QRIS\", \"GOPAY\")."
+          },
+          "va": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.VaMethod"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is va."
+          },
+          "qris": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.QrisMethod"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is qris."
+          },
+          "ewallet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.EwalletMethod"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is ewallet."
+          },
+          "card": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payment.v1.CardMethod"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is card."
+          }
+        },
+        "required": [
+          "type",
+          "instrument",
+          "va",
+          "qris",
+          "ewallet",
+          "card"
+        ]
+      },
+      "merchant.payment.v1.QrisMethod": {
+        "type": "object",
+        "description": "QrisMethod is a QRIS code any Indonesian banking or e-wallet app pays.\nIt has no detail yet; fields arrive by addition.",
+        "properties": {}
+      },
+      "merchant.payment.v1.Settlement": {
+        "type": "object",
+        "description": "Settlement is when a paid payment's money becomes your available balance.",
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "settled"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "pending: waiting for `dueAt`. settled: in your available balance. An\nopen dispute may hold the money past `dueAt`."
+          },
+          "dueAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the money is due to settle."
+          },
+          "settledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When it settled; `null` until then."
+          }
+        },
+        "required": [
+          "status",
+          "dueAt",
+          "settledAt"
+        ]
+      },
+      "merchant.payment.v1.VaMethod": {
+        "type": "object",
+        "description": "VaMethod is a bank virtual account.",
+        "properties": {
+          "bank": {
+            "type": "string",
+            "description": "The bank's code (\"BCA\")."
+          }
+        },
+        "required": [
+          "bank"
+        ]
+      },
+      "merchant.payout.v1.BankAccountDestination": {
+        "type": "object",
+        "description": "BankAccountDestination is a bank account.",
+        "properties": {
+          "bank": {
+            "type": "string",
+            "description": "The bank's code (\"BCA\")."
+          },
+          "accountNumberLast4": {
+            "type": "string",
+            "description": "The account number's last four digits."
+          }
+        },
+        "required": [
+          "bank",
+          "accountNumberLast4"
+        ]
+      },
+      "merchant.payout.v1.CreatePayoutRequest": {
+        "type": "object",
+        "description": "CreatePayoutRequest is the payout you ask for.",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[ -~]+$",
+            "minLength": 1,
+            "description": "Your own id for the payout, unique in the project: 1 to 64 printable\nASCII characters once surrounding spaces are trimmed (banks and vendors\naccept no more)."
+          },
+          "beneficiary": {
+            "type": "string",
+            "pattern": "^ben_[0-9a-f-]{36}$",
+            "minLength": 1,
+            "description": "The saved beneficiary to pay (`ben_…`)."
+          },
+          "amount": {
+            "$ref": "#/components/schemas/type.v1.MoneyInput",
+            "description": "What to pay out: a positive amount with at most the currency's\ndecimals (IDR: 2). Only fiat currencies are paid out."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Your own note on the payout, at most 255 characters."
+          }
+        },
+        "required": [
+          "reference",
+          "beneficiary",
+          "amount"
+        ],
+        "additionalProperties": false
+      },
+      "merchant.payout.v1.Destination": {
+        "type": "object",
+        "description": "Destination is the account a payout is sent to. `type` names it; exactly\nthe sub-object of that name is set, every other one is `null`. The full\naccount number is never answered.",
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "bank_account",
+                  "ewallet"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "bank_account or ewallet. Accept a value you do not know yet."
+          },
+          "holderName": {
+            "type": "string",
+            "description": "The account holder's name, as saved on the beneficiary."
+          },
+          "bankAccount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payout.v1.BankAccountDestination"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is bank_account."
+          },
+          "ewallet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payout.v1.EwalletDestination"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is ewallet."
+          }
+        },
+        "required": [
+          "type",
+          "holderName",
+          "bankAccount",
+          "ewallet"
+        ]
+      },
+      "merchant.payout.v1.EwalletDestination": {
+        "type": "object",
+        "description": "EwalletDestination is an e-wallet account.",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "description": "The e-wallet's code (\"GOPAY\")."
+          },
+          "accountNumberLast4": {
+            "type": "string",
+            "description": "The account number's last four digits."
+          }
+        },
+        "required": [
+          "provider",
+          "accountNumberLast4"
+        ]
+      },
+      "merchant.payout.v1.Fee": {
+        "type": "object",
+        "description": "Fee is one line the platform charges for a payout.",
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "fee",
+                  "tax"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "fee: the platform's fee. tax: the tax on that fee."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The line's amount, in the payout's currency."
+          }
+        },
+        "required": [
+          "type",
+          "amount"
+        ]
+      },
+      "merchant.payout.v1.Payout": {
+        "type": "object",
+        "description": "Payout is money sent from your balance to a beneficiary. Its money always\nadds up: `debit` = `net` + the sum of `fees`. A fee you bear is debited on\ntop of the amount (`net` = `amount`); one the beneficiary bears comes off\nwhat is sent (`debit` = `amount`).\n\npending_approval: waiting for a second person on your team. processing:\napproved, being sent. paid: the provider reported the money sent.\nfailed: it was not sent (see `failure`); the debit is back in your\nbalance. rejected: your approver refused it, or the platform's risk review did.\ncanceled: you withdrew it before approval. returned: the bank sent the\nmoney back after it was paid (not sent yet; handle it from the start).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The payout's id (`po_…`)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"payout\"."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Your own id for the payout, as you sent it with surrounding spaces\ntrimmed."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What you asked to pay out."
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/merchant.payout.v1.Fee"
+            },
+            "description": "The platform's fee and its tax for the payout, whoever bears them: both lines\nare always listed, `0.00` when the payout is free."
+          },
+          "net": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the beneficiary receives."
+          },
+          "debit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Money"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What leaves your available balance: reserved when you request the\npayout, returned in full when it ends unpaid."
+          },
+          "beneficiary": {
+            "type": "string",
+            "description": "The beneficiary paid (`ben_…`)."
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/merchant.payout.v1.Destination"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the money goes, as it was paid: a beneficiary never changes, and\na deleted one keeps its payouts' destination."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending_approval",
+                  "processing",
+                  "paid",
+                  "failed",
+                  "rejected",
+                  "canceled",
+                  "returned"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "pending_approval, processing, paid, failed, rejected, canceled or\nreturned. Accept a value you do not know yet."
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Failure"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the payout failed; `null` unless the status is failed. declined:\nevery provider it was sent to refused it, so check the beneficiary's\naccount. processing_error: it failed after a provider took it."
+          },
+          "description": {
+            "type": "string",
+            "description": "As you sent it; \"\" when none."
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the payout was requested."
+          },
+          "paidAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the provider reported the money sent; `null` until then."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "withdrawal",
+                  "disbursement"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "withdrawal: your own balance to your own withdraw account, requested on the dashboard.\ndisbursement: money sent to someone else, as every payout this API creates is. Each has its own fee. Accept\na value you do not know yet."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "reference",
+          "amount",
+          "fees",
+          "net",
+          "debit",
+          "beneficiary",
+          "destination",
+          "status",
+          "failure",
+          "description",
+          "createdAt",
+          "paidAt",
+          "type"
+        ]
+      },
+      "merchant.payout.v1.PayoutEvent": {
+        "type": "object",
+        "description": "PayoutEvent is the body of a webhook about a payout.\nIt arrives as a signed POST to your endpoint.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The event's id (`evt_…`), also sent as `Webhook-Id`: the same on every\ntry. Store events under it, once: one can arrive twice."
+          },
+          "object": {
+            "type": "string",
+            "description": "Always \"event\"."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "payout.paid",
+                  "payout.failed",
+                  "payout.rejected",
+                  "payout.canceled"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "What happened, as `Webhook-Event` names it."
+          },
+          "apiVersion": {
+            "type": "string",
+            "description": "The API version `data.object` is written in (\"v1\")."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the event was written."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "test"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "live from the production API (`sk_live_` keys), test from the sandbox\n(`sk_test_` keys). Accept a value you do not know yet."
+          },
+          "resourceVersion": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Orders the events of one object: drop an event whose resourceVersion is\nolder than the one you hold. A JSON number, not a string."
+          },
+          "data": {
+            "$ref": "#/components/schemas/merchant.payout.v1.PayoutEvent.Data",
+            "description": "What the event is about."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "type",
+          "apiVersion",
+          "createdAt",
+          "mode",
+          "resourceVersion",
+          "data"
+        ]
+      },
+      "merchant.payout.v1.PayoutEvent.Data": {
+        "type": "object",
+        "description": "Data holds the object the event is about.",
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/merchant.payout.v1.Payout",
+            "description": "The payout as `GET /payouts/{id}` answered when the event was written."
+          }
+        },
+        "required": [
+          "object"
+        ]
+      },
+      "type.v1.DisplayQr": {
+        "type": "object",
+        "description": "DisplayQr is a QR code the payer scans with a banking or e-wallet app.",
+        "properties": {
+          "data": {
+            "type": "string",
+            "description": "The QR payload (EMVCo QRIS string). Render it as a QR code; never\nchange it."
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "type.v1.DisplayVa": {
+        "type": "object",
+        "description": "DisplayVa is a virtual account the payer transfers the exact charge to.",
+        "properties": {
+          "bank": {
+            "type": "string",
+            "description": "The bank's code (\"BCA\")."
+          },
+          "number": {
+            "type": "string",
+            "description": "The virtual account number to transfer to."
+          },
+          "billerCode": {
+            "type": "string",
+            "description": "The company code some banks ask for before the number (a Mandiri bill\npayment); \"\" when the bank asks for none."
+          }
+        },
+        "required": [
+          "bank",
+          "number",
+          "billerCode"
+        ]
+      },
+      "type.v1.Failure": {
+        "type": "object",
+        "description": "Failure is why something a provider was asked to do did not happen: a\nrefused payment attempt, a business verification the identity checks\nturned down, later a failed payout or refund (API-001 §4.3 rule 2). It\nis not an HTTP error: the request that started it succeeded, and the\nobject's status says it failed. `code` is the platform's normalized code,\nnever a provider's, and the list grows by addition: handle a code you do\nnot know as `processing_error`.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "declined",
+                  "processing_error"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "declined: the provider refused it (a payment: the payer may try\nanother instrument; a verification: a check refused the evidence).\nprocessing_error: it failed for another reason after it was sent."
+          },
+          "message": {
+            "type": "string",
+            "description": "A short English explanation, safe to show to the person who sent it\n(the payer, the merchant). Branch on `code`, never on this text."
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "type.v1.Money": {
+        "type": "object",
+        "description": "Money is an amount with its currency (API-001 §4.1, FIN-002). Every amount\non the wire is a Money, even next to another one in the same currency, so\na client never pairs a bare number with a currency it guessed.",
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^-?(0|[1-9][0-9]*)([.][0-9]+)?$",
+            "description": "A decimal string at the asset's fixed scale (\"150000.00\" for IDR), with\nno thousands separator: never a float or integer minor units, because\ncrypto assets need up to 18 decimals. Input with more decimals than the\nscale is refused (400 invalid_amount), never rounded."
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9-]{1,15}$",
+            "description": "The public asset code (\"IDR\"). A code that has appeared in the API never\nchanges; renaming an asset adds an alias."
+          }
+        },
+        "required": [
+          "value",
+          "currency"
+        ]
+      },
+      "type.v1.MoneyInput": {
+        "type": "object",
+        "description": "Money is an amount with its currency (API-001 §4.1, FIN-002). Every amount\non the wire is a Money, even next to another one in the same currency, so\na client never pairs a bare number with a currency it guessed.",
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^-?(0|[1-9][0-9]*)([.][0-9]+)?$",
+            "description": "A decimal string at the asset's fixed scale (\"150000.00\" for IDR), with\nno thousands separator: never a float or integer minor units, because\ncrypto assets need up to 18 decimals. Input with more decimals than the\nscale is refused (400 invalid_amount), never rounded."
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9-]{1,15}$",
+            "description": "The public asset code (\"IDR\"). A code that has appeared in the API never\nchanges; renaming an asset adds an alias."
+          }
+        },
+        "additionalProperties": false
+      },
+      "type.v1.NextAction": {
+        "type": "object",
+        "description": "NextAction is what the payer does next to pay an attempt (API-001 §4.3\nrule 4). `type` says which one; exactly the sub-object of that name is\nset, every other one is `null`. New types arrive by addition: a client\nshows what it knows and treats an unknown type as \"send the payer to the\nhosted page\".",
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "display_va",
+                  "display_qr",
+                  "redirect",
+                  "open_app"
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "display_va: show a virtual account number the payer transfers to.\ndisplay_qr: render a QR code (QRIS) the payer scans.\nredirect: send the payer to a URL (an e-wallet or a bank's page).\nopen_app: open the payer's app with a deep link (reserved, not sent in\nv1)."
+          },
+          "displayVa": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.DisplayVa"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is display_va."
+          },
+          "displayQr": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.DisplayQr"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is display_qr."
+          },
+          "redirect": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.Redirect"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is redirect."
+          },
+          "openApp": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/type.v1.OpenApp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when type is open_app."
+          }
+        },
+        "required": [
+          "type",
+          "displayVa",
+          "displayQr",
+          "redirect",
+          "openApp"
+        ]
+      },
+      "type.v1.OpenApp": {
+        "type": "object",
+        "description": "OpenApp opens the payer's app.",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The deep link to open."
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "type.v1.Redirect": {
+        "type": "object",
+        "description": "Redirect sends the payer to a page that takes the payment.",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "An absolute https URL."
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "`invalid_request` (400).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "invalid_request"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Idempotency": {
+        "description": "`idempotency_error` (422).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "idempotency_error"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Authentication": {
+        "description": "`authentication` (401).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "authentication"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Permission": {
+        "description": "`permission` (403).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "permission"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "`not_found` (404).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "not_found"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "`conflict` (409).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "conflict"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "RateLimit": {
+        "description": "`rate_limit` (429).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          },
+          "Retry-After": {
+            "$ref": "#/components/headers/Retry-After"
+          },
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit-Limit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimit-Remaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimit-Reset"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "rate_limit"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "`api_error` (500): our failure, safe to retry with the same Idempotency-Key; `provider_unavailable` (503): a payment provider is down, retry later with the same key; `overloaded` (503): the API is busy and ran nothing, retry after `Retry-After` with the same key.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          },
+          "Retry-After": {
+            "$ref": "#/components/headers/Retry-After"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "provider_unavailable",
+                            "overloaded",
+                            "api_error"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "X-Request-ID": {
+        "description": "The request's id: quote it to support. Sent on every response.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "RateLimit-Limit": {
+        "description": "Requests allowed per window, on every answer of a route with a declared rate limit.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "RateLimit-Remaining": {
+        "description": "Requests left in the current window.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "RateLimit-Reset": {
+        "description": "Seconds until the window resets.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Retry-After": {
+        "description": "Seconds to wait before retrying.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Idempotent-Replayed": {
+        "description": "`true` when this answer replays an earlier request with the same Idempotency-Key: nothing was created or sent again. Absent on a first answer.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true"
+          ]
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A merchant API key on the merchant API; a session token on the dashboard and console APIs; a service key of the platform's own (`zsk_…`) on the service and agent APIs."
+      }
+    }
+  }
+}
