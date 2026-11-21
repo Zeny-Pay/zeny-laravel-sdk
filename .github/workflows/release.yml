@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  check:
+    # Packagist reads the tag through its GitHub webhook, so this job stores no
+    # token and publishes nothing. It fails loudly on a tag that must not ship;
+    # RELEASING.md says how to withdraw one.
+    needs: verify
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Tagged commit is on main
+        # fetch-depth 0 already brought origin/main; a second fetch would need
+        # credentials, which this checkout does not keep.
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main; releases are cut from main only"
+            exit 1
+          fi
+      - name: Tag matches the SDK version
+        run: |
+          version=$(sed -n "s/.*public const VALUE = '\(.*\)';.*/\1/p" src/Infrastructure/Http/Version.php)
+          if [ -z "$version" ] || [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Version::VALUE '$version'"
+            exit 1
+          fi
+      - name: Refuse pre-1.0 and pre-release versions
+        shell: bash
+        # Remove or loosen this step for the first 1.0 release (see RELEASING.md).
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ "${version%%.*}" = "0" ] || [[ "$version" == *-* ]]; then
+            echo "::error::version $version is pre-1.0 or a pre-release; these are not released"
+            exit 1
+          fi

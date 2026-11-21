@@ -12,8 +12,9 @@ lists it as a deliberate PHP or Laravel difference.
 
 - PHP 8.2+ with `declare(strict_types=1)` everywhere. Laravel 11 and 12 for the
   adapter in `src/Laravel/`.
-- Runtime dependencies: `psr/http-client`, `psr/http-factory`,
-  `guzzlehttp/guzzle` and `illuminate/support` (adapter only).
+- Runtime dependencies: `psr/http-client`, `psr/http-message`,
+  `guzzlehttp/guzzle`, and `illuminate/support` and `illuminate/http`
+  (adapter only).
 - Tooling: Composer, Pest (with `arch()`), PHPStan at level max, Pint,
   Orchestra Testbench.
 
@@ -108,6 +109,9 @@ Rules:
   `TransportDeps`. Laravel: Orchestra Testbench.
 - README code blocks are mirrored in `examples/*.php`, typechecked, and
   `tests/ReadmeTest.php` keeps them in sync. Change both together.
+  A README block is the example file minus its `declare(strict_types=1)`
+  header. Stand-ins the examples need (the merchant's `Order` model) live in
+  `examples/stubs/` and are not README blocks.
 
 ## Contract changes
 

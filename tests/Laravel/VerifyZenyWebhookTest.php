@@ -8,7 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
+use LogicException;
 use Symfony\Component\HttpFoundation\Response;
+use Zeny\Laravel\Middleware\VerifyZenyWebhook;
 use Zeny\Tests\Support\WebhookFixture as F;
 
 final class VerifyZenyWebhookTest extends LaravelTestCase
@@ -23,20 +25,22 @@ final class VerifyZenyWebhookTest extends LaravelTestCase
 
             return ['event' => $request->attributes->get('zenyEvent')];
         })->middleware('zeny.webhook');
+        $router->post('/typed', fn (Request $request): array => ['id' => VerifyZenyWebhook::event($request)['id']])->middleware('zeny.webhook');
+        $router->post('/unguarded', fn (Request $request): array => VerifyZenyWebhook::event($request));
     }
 
     /**
      * @param  array<string, string>  $headers
      * @return TestResponse<Response>
      */
-    private function deliver(string $body, array $headers): TestResponse
+    private function deliver(string $body, array $headers, string $uri = '/webhooks'): TestResponse
     {
         $server = [];
         foreach ($headers as $name => $value) {
             $server['HTTP_'.strtoupper(str_replace('-', '_', $name))] = $value;
         }
 
-        return $this->call('POST', '/webhooks', [], [], [], $server + ['CONTENT_TYPE' => 'application/json'], $body);
+        return $this->call('POST', $uri, [], [], [], $server + ['CONTENT_TYPE' => 'application/json'], $body);
     }
 
     public function test_a_signed_request_reaches_the_route_with_the_event(): void
@@ -68,5 +72,18 @@ final class VerifyZenyWebhookTest extends LaravelTestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->deliver(F::body(), F::headers(time()));
+    }
+
+    public function test_event_returns_the_verified_event(): void
+    {
+        $this->deliver(F::body(), F::headers(time()), '/typed')->assertJsonPath('id', 'evt_1');
+    }
+
+    public function test_event_throws_on_a_route_without_the_middleware(): void
+    {
+        $this->withoutExceptionHandling();
+
+        $this->expectException(LogicException::class);
+        $this->deliver(F::body(), F::headers(time()), '/unguarded');
     }
 }
