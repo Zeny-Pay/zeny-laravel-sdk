@@ -22,7 +22,9 @@ interface PaymentLinkRepository
 {
     /**
      * Creates a link. Pass an idempotency key derived from your order so a
-     * retry returns the same link instead of a second one.
+     * retry returns the same link instead of a second one. Set `maxPayments`
+     * to 1 for a link per order: once paid, a new payment on it fails with
+     * `ConflictError` code `payment_link_closed`.
      *
      * @param  CreatePaymentLinkParams  $params
      * @return ZenyObject<PaymentLink>

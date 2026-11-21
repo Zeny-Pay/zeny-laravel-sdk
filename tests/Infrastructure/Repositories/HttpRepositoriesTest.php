@@ -19,7 +19,7 @@ function sent(RequestSpec $spec): array
 
 $amount = ['value' => '150000', 'currency' => 'IDR'];
 $key = new RequestOptions('k-1');
-$link = ['name' => 'Order #1042', 'amount' => $amount, 'instruments' => ['QRIS'], 'successRedirectUrl' => 'https://shop.example/thanks'];
+$link = ['name' => 'Order #1042', 'amount' => $amount, 'instruments' => ['QRIS'], 'successRedirectUrl' => 'https://shop.example/thanks', 'description' => 'Two coffees', 'maxPayments' => 1, 'requiredPayerFields' => ['name', 'email'], 'expiredRedirectUrl' => 'https://shop.example/expired'];
 $payout = ['reference' => 'po-1', 'beneficiary' => 'ben_1', 'amount' => $amount];
 
 /** @var array<string, array{Closure(FakeTransport): mixed, array{string, string, array<string, string|int|null>, array<string, mixed>|null, string|null}}> $cases */

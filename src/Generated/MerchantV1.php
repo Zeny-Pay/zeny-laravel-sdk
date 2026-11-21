@@ -40,6 +40,10 @@ namespace Zeny\Generated;
  *     instruments?: list<string>,
  *     successRedirectUrl?: string,
  *     expiresAt?: string,
+ *     description?: string,
+ *     maxPayments?: int,
+ *     requiredPayerFields?: list<'name'|'email'|'phone'>,
+ *     expiredRedirectUrl?: string,
  * }
  * @phpstan-type S_merchant_payment_v1_CreatePaymentRequest array{
  *     reference: string,
@@ -185,6 +189,10 @@ namespace Zeny\Generated;
  *     paidCount: int,
  *     createdAt: string|null,
  *     expiresAt: string|null,
+ *     description: string,
+ *     maxPayments: int,
+ *     requiredPayerFields: list<string>,
+ *     expiredRedirectUrl: string,
  * }
  * @phpstan-type S_merchant_payment_v1_PaymentMethod array{
  *     type: string,

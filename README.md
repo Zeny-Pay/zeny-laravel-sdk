@@ -33,6 +33,8 @@ Route::post('/orders/{order}/pay', function (Order $order): RedirectResponse {
         'name' => "Order #{$order->id}",
         'amount' => ['value' => $order->total, 'currency' => 'IDR'], // a decimal string, never a float
         'successRedirectUrl' => route('orders.thanks', $order),
+        'maxPayments' => 1, // one order, one payment: the link closes once paid
+        'requiredPayerFields' => ['email'], // the payer must give an email for the receipt
     ], new RequestOptions(idempotencyKey: "order-{$order->id}-link"))->toArray();
 
     $order->update(['payment_link' => $link['id']]); // pl_..., matched on the payment.paid webhook
@@ -42,6 +44,8 @@ Route::post('/orders/{order}/pay', function (Order $order): RedirectResponse {
 ```
 
 Amounts are decimal strings, never numbers. Pass your own idempotency key derived from the order, so a retried request returns the same link instead of a second one. Do not mark the order paid when the payer comes back: wait for the `payment.paid` webhook, which carries the link id in `paymentLink`.
+
+`maxPayments` caps how many paid payments a link takes (0 or omitted: no limit); once reached, a new payment on the link fails with `ConflictError` code `payment_link_closed`, and payers already paying may still finish, so refund any extra. `requiredPayerFields` lists the details a payer must give (`name`, `email`, `phone`); a link you read back may hold a value added later, so accept unknown ones. `description` (one line, up to 500 characters) is shown under the name, and `expiredRedirectUrl` (an `https` URL) is where a payer who opens an expired link is sent.
 
 The other calls on a link: `retrieve($id)`, `list(['status' => 'active', 'limit' => 20])` (a cursor list: pass `nextCursor` back as `cursor` while `hasMore` is true; canceled links are left out), `close($id)` (stops new payments), `reopen($id)` (fails for an expired or canceled link) and `cancel($id)` (only while the link has no payments; otherwise `ConflictError` with code `payment_link_has_payments`).
 

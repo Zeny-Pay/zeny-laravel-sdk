@@ -13,6 +13,8 @@ Route::post('/orders/{order}/pay', function (Order $order): RedirectResponse {
         'name' => "Order #{$order->id}",
         'amount' => ['value' => $order->total, 'currency' => 'IDR'], // a decimal string, never a float
         'successRedirectUrl' => route('orders.thanks', $order),
+        'maxPayments' => 1, // one order, one payment: the link closes once paid
+        'requiredPayerFields' => ['email'], // the payer must give an email for the receipt
     ], new RequestOptions(idempotencyKey: "order-{$order->id}-link"))->toArray();
 
     $order->update(['payment_link' => $link['id']]); // pl_..., matched on the payment.paid webhook

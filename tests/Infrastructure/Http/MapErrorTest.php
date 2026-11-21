@@ -45,6 +45,12 @@ foreach ($classes as $type => $class) {
     });
 }
 
+test('a closed payment link is a ConflictError with code payment_link_closed', function (): void {
+    $error = MapError::map(409, wire(['error' => ['type' => 'conflict', 'code' => 'payment_link_closed', 'message' => 'closed']]), null);
+
+    expect([get_class($error), $error->code])->toBe([ConflictError::class, 'payment_link_closed']);
+});
+
 test('an unknown type gives a plain ZenyError', function (): void {
     expect(get_class(MapError::map(400, errorBody('brand_new'), null)))->toBe(ZenyError::class);
 });

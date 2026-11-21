@@ -2320,6 +2320,38 @@
             "type": "string",
             "format": "date-time",
             "description": "When the link stops taking payments, in the future. Omit it, or send\n`null`, for a link that never expires."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "What the payer reads about the link under its name: at most 500\ncharacters once the spaces around it are trimmed, on one line (no\ncontrol characters). Omit it for none."
+          },
+          "maxPayments": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 1000000,
+            "description": "How many paid payments the link takes, from 1 to 1,000,000: once that\nmany are paid it takes no new payment (`409 payment_link_closed`, and\nthe checkout reads it `closed`). Every payer already paying when the cap\nis reached may still finish, so a link can end over its cap by as many\npayers as were paying at once; refund any extra. 0 or omitted takes\npayments without limit."
+          },
+          "requiredPayerFields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "name",
+                "email",
+                "phone"
+              ]
+            },
+            "maxItems": 3,
+            "uniqueItems": true,
+            "description": "The payer details a payer must give before paying (\"name\", \"email\",\n\"phone\"), each once. Omit it, or send `[]`, to leave every detail\noptional."
+          },
+          "expiredRedirectUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^(https://.+)?$",
+            "description": "Your page for a payer who opens the link after it expired: an absolute\n`https` URL, at most 2048 characters. Omit it for none."
           }
         },
         "required": [
@@ -3412,6 +3444,26 @@
             ],
             "format": "date-time",
             "description": "When the link stops taking payments; `null` when it never does."
+          },
+          "description": {
+            "type": "string",
+            "description": "What the payer reads about the link; \"\" when nothing."
+          },
+          "maxPayments": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many payments the link takes; 0 when there is no limit."
+          },
+          "requiredPayerFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The payer details a payer must give (\"name\", \"email\", \"phone\"), in\nthat order; `[]` when none. Accept a value you do not know yet."
+          },
+          "expiredRedirectUrl": {
+            "type": "string",
+            "description": "Your page for a payer who opens the link after it expired; \"\" when\nnone."
           }
         },
         "required": [
@@ -3425,7 +3477,11 @@
           "url",
           "paidCount",
           "createdAt",
-          "expiresAt"
+          "expiresAt",
+          "description",
+          "maxPayments",
+          "requiredPayerFields",
+          "expiredRedirectUrl"
         ]
       },
       "merchant.payment.v1.PaymentMethod": {
