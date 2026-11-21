@@ -25,6 +25,7 @@ final class ZenyServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(self::configPath(), 'zeny');
         $this->app->singleton(Zeny::class, fn (Application $app): Zeny => self::client($app));
+        $this->app->singleton(ZenyApi::class, fn (Application $app): ZenyApi => new ClientApi($app->make(Zeny::class)));
     }
 
     public function boot(): void

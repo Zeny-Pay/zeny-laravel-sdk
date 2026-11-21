@@ -38,7 +38,9 @@ final class Webhook
      *
      * @param  Closure(): (int|float)  $now
      * @param  mixed  $rawBody  the request body, byte for byte
-     * @param  mixed  $headers  header name => value or list of values, any case
+     * @param  mixed  $headers  header name => value or list of values, any case: an
+     *                          array, or anything iterable such as a Laravel
+     *                          `$request->headers` (Symfony HeaderBag)
      * @param  array<string, mixed>  $options  `toleranceSec` (default 300)
      * @return ZenyEvent
      */
@@ -77,12 +79,12 @@ final class Webhook
         return [$rawBody, $secret, $toleranceSec];
     }
 
-    /** Case-insensitive lookup; for a list the first element wins. */
+    /** Case-insensitive lookup over an array or any iterable; for a list the first element wins. */
     private static function header(mixed $headers, string $name): string
     {
         $value = null;
-        foreach (is_array($headers) ? $headers : [] as $key => $candidate) {
-            if (strtolower((string) $key) === $name) {
+        foreach (is_iterable($headers) ? $headers : [] as $key => $candidate) {
+            if (is_string($key) && strtolower($key) === $name) {
                 $value = is_array($candidate) ? ($candidate[array_key_first($candidate) ?? 0] ?? null) : $candidate;
                 break;
             }

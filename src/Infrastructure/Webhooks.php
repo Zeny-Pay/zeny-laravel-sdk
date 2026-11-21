@@ -33,7 +33,8 @@ final class Webhooks
      * event `id` under a unique constraint.
      *
      * @param  mixed  $rawBody  the raw body string
-     * @param  mixed  $headers  header name => value or list of values, any case
+     * @param  mixed  $headers  header name => value or list of values, any case; an
+     *                          array or an iterable such as `$request->headers`
      * @param  array<string, mixed>  $options  `toleranceSec` (default 300); `now`, a Closure returning milliseconds, for tests
      * @return ZenyEvent
      */

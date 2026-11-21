@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Symfony\Component\HttpFoundation\HeaderBag;
+use Symfony\Component\HttpFoundation\Request;
 use Zeny\Domain\Errors\SignatureVerificationError;
 use Zeny\Domain\Webhook\HmacVerifier;
 use Zeny\Domain\Webhook\Webhook;
@@ -24,6 +26,20 @@ test('Zeny::webhooks() verifies against the system clock', function (): void {
     $now = time();
 
     expect(Zeny::webhooks()->constructEvent(F::body(), F::headers($now), F::SECRET)['id'])->toBe('evt_1');
+});
+
+test('a Symfony HeaderBag is read like an array', function (): void {
+    expect(F::run(F::body(), new HeaderBag(F::headers()))['id'])->toBe('evt_1');
+});
+
+test('a request\'s headers ($request->headers) are read', function (): void {
+    $request = Request::create('/webhooks', 'POST', server: ['HTTP_WEBHOOK_SIGNATURE' => F::sign(F::NOW, F::body()), 'HTTP_WEBHOOK_TIMESTAMP' => (string) F::NOW]);
+
+    expect(F::run(F::body(), $request->headers)['id'])->toBe('evt_1');
+});
+
+test('an iterable with a header missing is signature_missing', function (): void {
+    expect(F::code(F::body(), new ArrayIterator(['webhook-timestamp' => (string) F::NOW])))->toBe('signature_missing');
 });
 
 test('one changed byte is a signature_mismatch', function (): void {
