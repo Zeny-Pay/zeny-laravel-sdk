@@ -10,8 +10,8 @@ lists it as a deliberate PHP or Laravel difference.
 
 ## Stack
 
-- PHP 8.2+ with `declare(strict_types=1)` everywhere. Laravel 11 and 12 for the
-  adapter in `src/Laravel/`.
+- PHP 8.2+ with `declare(strict_types=1)` everywhere. Laravel 12 and 13 (13 needs
+  PHP 8.3+) for the adapter in `src/Laravel/`.
 - Runtime dependencies: `psr/http-client`, `psr/http-message`,
   `guzzlehttp/guzzle`, and `illuminate/support` and `illuminate/http`
   (adapter only).

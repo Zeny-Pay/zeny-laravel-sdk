@@ -8,7 +8,7 @@ Accept Indonesian payments from Laravel: the official PHP SDK for the Merchant A
 composer require usezeny/laravel
 ```
 
-Requires PHP 8.2+ and Laravel 11 or 12. The service provider and the `Zeny` facade register themselves. The client works outside Laravel too (see [Environments and `baseUrl`](#environments-and-baseurl)).
+Requires PHP 8.2+ and Laravel 12, or PHP 8.3+ and Laravel 13. The service provider and the `Zeny` facade register themselves. The client works outside Laravel too (see [Environments and `baseUrl`](#environments-and-baseurl)).
 
 Add your keys to `.env`. Get a Sandbox secret key (`sk_test_...`) from the dashboard Developers page under `/test`; Sandbox money is never real.
 

@@ -8,5 +8,5 @@
 - Retries with backoff for transient failures, per-request timeout, `Retry-After` support.
 - Typed error classes with a stable `code` and `requestId`.
 - `constructEvent` webhook verification (HMAC-SHA256, timestamp tolerance) with typed events.
-- Laravel 11 and 12: service provider with `config/zeny.php`, `Zeny` facade, and the `zeny.webhook` middleware with `VerifyZenyWebhook::event()`.
+- Laravel 12 and 13: service provider with `config/zeny.php`, `Zeny` facade, and the `zeny.webhook` middleware with `VerifyZenyWebhook::event()`.
 - Sandbox or Production chosen by the key prefix; `baseUrl` for white-label brands; any PSR-18 HTTP client.
