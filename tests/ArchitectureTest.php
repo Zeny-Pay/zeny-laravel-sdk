@@ -64,6 +64,10 @@ arch('the core never depends on the Laravel adapter', function (): void {
     expect(['Zeny\Domain', 'Zeny\Infrastructure', 'Zeny\Generated'])->not->toUse('Zeny\Laravel');
 });
 
+arch('the client class never imports Illuminate', function (): void {
+    expect('Zeny\Zeny')->not->toUse('Illuminate');
+});
+
 arch('no debugging calls ship', function (): void {
     expect('Zeny')->not->toUse(['dd', 'dump', 'var_dump', 'print_r', 'ray']);
 });

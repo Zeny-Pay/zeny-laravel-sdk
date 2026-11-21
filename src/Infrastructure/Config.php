@@ -36,6 +36,17 @@ final class Config
     ) {}
 
     /**
+     * Leaves the key out entirely, not even its redacted `sk_..._***` form, so
+     * `var_dump` of a client never prints anything that looks like a key.
+     *
+     * @return array{mode: string, baseUrl: string, maxRetries: int, timeoutMs: int|float}
+     */
+    public function __debugInfo(): array
+    {
+        return ['mode' => $this->apiKey->mode, 'baseUrl' => $this->baseUrl, 'maxRetries' => $this->maxRetries, 'timeoutMs' => $this->timeoutMs];
+    }
+
+    /**
      * Turns the key and options into a validated config. Options: `baseUrl`,
      * `maxRetries` (default 2), `timeoutMs` (default 30000) and `httpClient`
      * (a PSR-18 client; the default is Guzzle with the timeout set and
