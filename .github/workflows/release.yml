@@ -21,7 +21,7 @@ jobs:
     # token and publishes nothing. It fails loudly on a tag that must not ship;
     # RELEASING.md says how to withdraw one.
     needs: verify
-    runs-on: depot-ubuntu-24.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
