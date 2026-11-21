@@ -12,6 +12,7 @@
     "require": {
         "php": "^8.2",
         "guzzlehttp/guzzle": "^7.8",
+        "illuminate/http": "^11.0|^12.0",
         "illuminate/support": "^11.0|^12.0",
         "psr/http-client": "^1.0",
         "psr/http-message": "^1.1|^2.0"
