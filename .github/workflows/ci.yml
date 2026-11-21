@@ -10,6 +10,17 @@ permissions:
   contents: read
 
 jobs:
+  attribution:
+    name: No AI contributors
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: scripts/check-attribution.sh
+
   verify:
     name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
     runs-on: depot-ubuntu-24.04

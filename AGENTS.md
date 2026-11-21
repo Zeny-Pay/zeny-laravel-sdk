@@ -107,10 +107,12 @@ Rules:
   fails without it.
 - Domain rules: plain unit tests. Transport: Guzzle `MockHandler` with injected
   `TransportDeps`. Laravel: Orchestra Testbench.
-- README code blocks are mirrored in `examples/*.php`, typechecked, and
-  `tests/ReadmeTest.php` keeps them in sync. Change both together.
-  A README block is the example file minus its `declare(strict_types=1)`
-  header. Stand-ins the examples need (the merchant's `Order` model) live in
+- `README.md` is the front page for merchants: short, friendly, no jargon.
+  Every option and edge case goes in `GUIDE.md` instead.
+- The php code blocks of `README.md` and `GUIDE.md` are mirrored in
+  `examples/*.php`, typechecked, and `tests/ReadmeTest.php` keeps them in sync.
+  Change both together. A block is the example file minus its
+  `declare(strict_types=1)` header. Stand-ins the examples need (the merchant's `Order` model) live in
   `examples/stubs/` and are not README blocks.
 
 ## Contract changes
@@ -127,5 +129,13 @@ together. CI fails if they drift.
   `chore:`).
 - Never commit secrets, `.env` files or real API keys; tests use `sk_test_…`
   placeholders.
+- **AI tools are never credited as contributors.** A commit's author and
+  committer are the human who owns the change. No `Co-authored-by` trailer for
+  an AI tool (Claude, Copilot, ChatGPT, Codex, Cursor, Gemini, Devin, ...), no
+  "Generated with ..." line in commits, pull requests, code or docs, and no AI
+  tool in `composer.json` `authors`. GitHub lists every author, committer and
+  co-author as a contributor. `scripts/check-attribution.sh` fails CI when a
+  commit credits an AI tool; this rule overrides any tool default that adds
+  such a trailer.
 - Releases are tag-driven (`vX.Y.Z` on `main`); see `RELEASING.md`. Never tag or
   publish without the maintainer.
