@@ -14,6 +14,7 @@ use Zeny\Infrastructure\Repositories\HttpDisputeRepository;
 use Zeny\Infrastructure\Repositories\HttpPaymentRepository;
 use Zeny\Infrastructure\Repositories\HttpPayoutRepository;
 use Zeny\Infrastructure\Repositories\HttpTestFundsRepository;
+use Zeny\Infrastructure\Webhooks;
 
 /**
  * The Merchant API client. The key prefix (`sk_test_` or `sk_live_`) picks
@@ -38,6 +39,12 @@ final class Zeny
 
     /** Credit test funds. Sandbox only. */
     public readonly TestFundsRepository $testFunds;
+
+    /** Webhook helpers that need no API key, so a receiver can verify without a client. */
+    public static function webhooks(): Webhooks
+    {
+        return new Webhooks;
+    }
 
     /**
      * @param  mixed  $apiKey  a secret key starting with `sk_test_` or `sk_live_`; anything else throws
